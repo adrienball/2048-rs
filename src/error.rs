@@ -16,7 +16,7 @@ pub enum ErrorKind {
     /// The board representation is invalid
     InvalidBoardRepr,
     /// The square value is invalid
-    InvalidSquareValue(usize),
+    InvalidSquareValue(u16),
 }
 
 impl Error {
