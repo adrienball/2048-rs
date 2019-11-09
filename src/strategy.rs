@@ -1,65 +1,76 @@
 use crate::board::{Board, Direction};
 use crate::evaluators::BoardEvaluator;
+use rand::prelude::ThreadRng;
+use rand::seq::SliceRandom;
+use rand::{thread_rng, Rng};
+use std::cmp::min;
 
 pub struct Strategy {
     board_evaluator: Box<dyn BoardEvaluator>,
-    exploration_depth: usize,
+    max_exploration_depth: usize,
+    rng: ThreadRng,
+    max_draws: usize,
 }
 
 impl Strategy {
-    pub fn new(evaluator: Box<dyn BoardEvaluator>, exploration_depth: usize) -> Self {
+    pub fn new(
+        evaluator: Box<dyn BoardEvaluator>,
+        exploration_depth: usize,
+        max_draws: usize,
+    ) -> Self {
         Self {
             board_evaluator: evaluator,
-            exploration_depth,
+            max_exploration_depth: exploration_depth,
+            rng: thread_rng(),
+            max_draws,
         }
     }
 
-    pub fn next_best_move(&self, board: Board, proba_4: f32) -> Direction {
-        *Direction::all()
+    pub fn next_best_move(&mut self, board: Board, proba_4: f32) -> Option<Direction> {
+        Direction::all()
             .iter()
-            .map(|direction| {
+            .filter_map(|direction| {
                 let new_board = board.move_to(*direction);
+                if board == new_board {
+                    return None;
+                }
                 let score = self.evaluate(new_board, 0, proba_4);
-                (direction, score)
+                Some((direction, score))
             })
             .max_by(|(_, lhs_score), (_, rhs_score)| lhs_score.partial_cmp(rhs_score).unwrap())
-            .unwrap()
-            .0
+            .map(|(d, _)| *d)
     }
 
-    fn evaluate(&self, board: Board, depth: usize, proba_4: f32) -> f32 {
-        if depth == self.exploration_depth {
+    fn evaluate(&mut self, board: Board, depth: usize, proba_4: f32) -> f32 {
+        if depth == self.max_exploration_depth {
             return self.board_evaluator.evaluate(board);
         }
-        let empty_tiles_indices = board.empty_tiles_indices();
-        if empty_tiles_indices.len() == 0 {
+        let mut empty_tiles_indices = board.empty_tiles_indices();
+        if empty_tiles_indices.is_empty() {
             return self.board_evaluator.evaluate(board);
         }
-        let draws = self.generate_all_possible_draws(board, &empty_tiles_indices, proba_4);
-        let scores_sum: f32 = draws
-            .map(|(board, proba)| {
-                let max_value = Direction::all()
+        empty_tiles_indices.shuffle(&mut self.rng);
+        let scores_sum: f32 = empty_tiles_indices
+            .iter()
+            .take(self.max_draws)
+            .map(|idx| {
+                let rand_value: f32 = self.rng.gen();
+                let drawn_value = if rand_value < proba_4 { 4 } else { 2 };
+                let board_with_draw = board.set_value(*idx, drawn_value);
+                Direction::all()
                     .iter()
-                    .map(|d| self.evaluate(board.move_to(*d), depth + 1, proba_4))
+                    .filter_map(|d| {
+                        let new_board = board_with_draw.move_to(*d);
+                        if board_with_draw == new_board {
+                            return None;
+                        }
+                        Some(self.evaluate(new_board, depth + 1, proba_4))
+                    })
                     .max_by(|lhs, rhs| lhs.partial_cmp(rhs).unwrap())
-                    .unwrap();
-                proba * max_value
+                    .unwrap_or(0.0)
             })
             .sum();
-        scores_sum / empty_tiles_indices.len() as f32
-    }
-
-    fn generate_all_possible_draws<'a>(
-        &self,
-        board: Board,
-        empty_tiles_indices: &'a Vec<u8>,
-        proba_4: f32,
-    ) -> impl Iterator<Item = (Board, f32)> + 'a {
-        empty_tiles_indices.iter().flat_map(move |idx| {
-            let drawn_2 = board.set_value(*idx, 2);
-            let drawn_4 = board.set_value(*idx, 4);
-            vec![(drawn_2, 1. - proba_4), (drawn_4, proba_4)].into_iter()
-        })
+        scores_sum / min(self.max_draws, empty_tiles_indices.len()) as f32
     }
 }
 
