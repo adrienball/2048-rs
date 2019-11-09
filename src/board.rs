@@ -466,7 +466,26 @@ mod tests {
 
         // When
         let max_value = board.max_value();
+
+        // Then
         assert_eq!(2048, max_value);
+    }
+
+    #[test]
+    fn should_get_empty_tiles() {
+        // Given
+        #[rustfmt::skip]
+        let vec_board = vec![
+            0, 2, 0, 2048,
+            0, 256, 0, 512,
+            0, 0, 1024, 4,
+            8, 2, 16, 64
+        ];
+        let board = Board::from(vec_board);
+
+        // When
+        let empty_tiles = board.empty_tiles_indices();
+        assert_eq!(vec![0, 2, 4, 6, 8, 9], empty_tiles);
     }
 
     #[test]
