@@ -255,6 +255,34 @@ impl Board {
     }
 }
 
+impl IntoIterator for Board {
+    type Item = u16;
+    type IntoIter = BoardIntoIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BoardIntoIterator {
+            board: self,
+            index: 0,
+        }
+    }
+}
+
+struct BoardIntoIterator {
+    board: Board,
+    index: u8,
+}
+
+impl Iterator for BoardIntoIterator {
+    type Item = u16;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.index {
+            16 => None,
+            _ => Some(self.board.get_value(self.index)),
+        }
+    }
+}
+
 impl From<Vec<u16>> for Board {
     fn from(tiles: Vec<u16>) -> Self {
         let mut state: u64 = 0;
