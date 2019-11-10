@@ -13,11 +13,16 @@ pub struct ZeroCountEvaluator;
 
 impl BoardEvaluator for ZeroCountEvaluator {
     fn evaluate(&self, board: Board) -> f32 {
-        let zeros: f32 = Vec::from(board)
-            .into_iter()
-            .map(|tile| if tile == 0 { 1. } else { 0. })
-            .sum();
-        zeros / 16.
+        board.empty_tiles_indices().len() as f32 / 16.
+    }
+}
+
+pub struct SumEvaluator;
+
+impl BoardEvaluator for SumEvaluator {
+    fn evaluate(&self, board: Board) -> f32 {
+        let sum: u16 = board.into_iter().sum();
+        sum as f32 / (32768 * 16) as f32
     }
 }
 
