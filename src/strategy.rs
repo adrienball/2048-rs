@@ -88,8 +88,8 @@ mod tests {
             }
         }
 
-        let strategy_shallow = Strategy::new(Box::new(DummyEvaluator {}), 0);
-        let strategy_deep = Strategy::new(Box::new(DummyEvaluator {}), 2);
+        let mut strategy_shallow = Strategy::new(Box::new(DummyEvaluator {}), 0, 4);
+        let mut strategy_deep = Strategy::new(Box::new(DummyEvaluator {}), 2, 4);
 
         #[rustfmt::skip]
         let board: Board = Board::from(vec![
@@ -104,7 +104,7 @@ mod tests {
         let direction_deep = strategy_deep.next_best_move(board, 0.0);
 
         // Then
-        assert_eq!(Direction::Down, direction_shallow);
-        assert_eq!(Direction::Right, direction_deep);
+        assert_eq!(Some(Direction::Down), direction_shallow);
+        assert_eq!(Some(Direction::Right), direction_deep);
     }
 }

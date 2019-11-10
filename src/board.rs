@@ -1,3 +1,4 @@
+use crate::utils::get_exponent;
 use std::fmt::{Debug, Display, Formatter};
 
 /// `Board` is the main object of the 2048 game. It represents the state of the 16 tiles.
@@ -59,7 +60,7 @@ impl Board {
     /// Returns the value at the corresponding index
     /// The underlying vector representation is used here
     pub fn get_value(&self, tile_idx: u8) -> u16 {
-        let exponent = (self.state >> 4 * (16 - tile_idx as u64 - 1)) & 15;
+        let exponent = (self.state >> 4 * (15 - tile_idx as u64)) & 15;
         if exponent == 0 {
             return 0;
         }
@@ -68,21 +69,23 @@ impl Board {
 
     /// Sets the value `tile_value` at the index `tile_idx`
     pub fn set_value(self, tile_idx: u8, tile_value: u16) -> Self {
-        let mut board_vec: Vec<_> = self.into();
-        board_vec[tile_idx as usize] = tile_value;
-        board_vec.into()
+        let bits_shift = ((15 - tile_idx) * 4) as u64;
+        // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
+        let clear_mask = !(15 << bits_shift);
+        let exponent = get_exponent(tile_value);
+        let update_mask = exponent << bits_shift;
+        let new_state = (self.state & clear_mask) | update_mask;
+        Board { state: new_state }
     }
 
     /// Returns the maximum value of the board
     pub fn max_value(self) -> u16 {
-        let board_vec: Vec<_> = self.into();
-        board_vec.into_iter().max().unwrap()
+        self.into_iter().max().unwrap()
     }
 
     /// Returns the indices of empty tiles
     pub fn empty_tiles_indices(self) -> Vec<u8> {
-        Vec::from(self)
-            .into_iter()
+        self.into_iter()
             .enumerate()
             .filter_map(|(idx, tile)| if tile == 0 { Some(idx as u8) } else { None })
             .collect()
@@ -261,14 +264,14 @@ impl IntoIterator for Board {
 
     fn into_iter(self) -> Self::IntoIter {
         BoardIntoIterator {
-            board: self,
+            state: self.state,
             index: 0,
         }
     }
 }
 
-struct BoardIntoIterator {
-    board: Board,
+pub struct BoardIntoIterator {
+    state: u64,
     index: u8,
 }
 
@@ -278,7 +281,16 @@ impl Iterator for BoardIntoIterator {
     fn next(&mut self) -> Option<Self::Item> {
         match self.index {
             16 => None,
-            _ => Some(self.board.get_value(self.index)),
+            _ => {
+                self.index += 1;
+                let exponent = self.state >> 60;
+                self.state <<= 4;
+                if exponent == 0 {
+                    Some(0)
+                } else {
+                    Some(2 << (exponent - 1) as u16)
+                }
+            }
         }
     }
 }
@@ -288,16 +300,7 @@ impl From<Vec<u16>> for Board {
         let mut state: u64 = 0;
         for tile_value in tiles.into_iter() {
             state <<= 4;
-            if tile_value == 0 {
-                continue;
-            }
-            let mut exponent = 1;
-            let mut v = tile_value >> 2;
-            while v != 0 {
-                v = v >> 1;
-                exponent += 1;
-            }
-            state |= exponent;
+            state |= get_exponent(tile_value);
         }
         Self { state }
     }
@@ -305,19 +308,15 @@ impl From<Vec<u16>> for Board {
 
 impl From<Board> for Vec<u16> {
     fn from(board: Board) -> Self {
-        (0..16)
-            .into_iter()
-            .map(|tile_idx| board.get_value(tile_idx))
-            .collect()
+        board.into_iter().collect()
     }
 }
 
 impl Display for Board {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let tiles: Vec<u16> = self.clone().into();
         let mut display = String::new();
         display.push_str("\n+-------+-------+-------+-------+\n");
-        for (i, tile) in tiles.into_iter().enumerate() {
+        for (i, tile) in self.into_iter().enumerate() {
             display.push_str(&*format!("| {}\t", tile));
             if tile < 10 {
                 display.push_str("\t");
@@ -365,9 +364,9 @@ mod tests {
         // Given
         #[rustfmt::skip]
         let board_values = vec![
-            0, 0, 0, 0, 
-            0, 0, 0, 0, 
-            0, 0, 4, 0, 
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 4, 0,
             0, 16, 0, 8
         ];
 
@@ -378,6 +377,31 @@ mod tests {
         let board_repr: u64 =
             2u64.pow(0 + 0) + 2u64.pow(1 + 0) + 2u64.pow(2 + 8) + 2u64.pow(1 + 20);
         assert_eq!(board_repr as u64, board.state);
+    }
+
+    #[test]
+    fn should_set_value() {
+        // Given
+        #[rustfmt::skip]
+        let board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 0, 4, 0,
+            4, 2, 0, 512,
+            16, 8, 32, 32,
+        ]);
+
+        // When
+        let board = board.set_value(5, 32).set_value(8, 64);
+
+        // Then
+        #[rustfmt::skip]
+        let expected_board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 32, 4, 0,
+            64, 2, 0, 512,
+            16, 8, 32, 32,
+        ]);
+        assert_eq!(expected_board, board);
     }
 
     #[test]
