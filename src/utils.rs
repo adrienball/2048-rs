@@ -1,24 +1,21 @@
 pub fn get_exponent(value: u16) -> u64 {
-    if value == 0 {
-        return 0;
-    }
-    let mut exponent = 1;
-    let mut v = value >> 2;
-    while v != 0 {
-        v = v >> 1;
-        exponent += 1;
-    }
-    exponent
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn should_get_exponent() {
-        assert_eq!(0, get_exponent(0));
-        assert_eq!(3, get_exponent(8));
-        assert_eq!(5, get_exponent(32));
+    match value {
+        0 => 0,
+        2 => 1,
+        4 => 2,
+        8 => 3,
+        16 => 4,
+        32 => 5,
+        64 => 6,
+        128 => 7,
+        256 => 8,
+        512 => 9,
+        1024 => 10,
+        2048 => 11,
+        4096 => 12,
+        8192 => 13,
+        16384 => 14,
+        32768 => 15,
+        _ => panic!("Invalid tile value {}", value),
     }
 }
