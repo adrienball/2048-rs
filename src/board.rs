@@ -95,10 +95,15 @@ impl Board {
 
     /// Returns the indices of empty tiles
     pub fn empty_tiles_indices(self) -> Vec<u8> {
-        self.into_iter()
-            .enumerate()
-            .filter_map(|(idx, tile)| if tile == 0 { Some(idx as u8) } else { None })
-            .collect()
+        let mut indices = Vec::<u8>::with_capacity(16);
+        let mut i = 0;
+        for tile in self.into_iter() {
+            if tile == 0 {
+                indices.push(i)
+            }
+            i+=1;
+        }
+        indices
     }
 
     /// Moves the tiles in the provided `Direction` and returns the resulting `Board`
