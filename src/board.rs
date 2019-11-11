@@ -112,81 +112,77 @@ impl Board {
     }
 
     fn into_left(self) -> Self {
-        let mut board_vec: Vec<_> = self.into();
-        for row in 0..4 {
-            // we can't use -1 here so we use 1 as it never appears in a board
-            let mut prev_value = 1;
-            let mut new_value_idx = 4 * row;
-            let mut col = 0;
-            // whether or not cells have been moved in this row
+        let mut board = self;
+        let mut tiles_iter = self.into_iter();
+        let mut value_idx = 0;
+        for _ in 0..4 {
+            // we can't use -1 here
+            let mut prev_value = std::u8::MAX;
+            let mut new_value_idx = value_idx;
+            // whether or not tiles have been moved in this row
             let mut moved = false;
-            while col < 4 {
-                let value_idx = 4 * row + col;
-                let value = board_vec[value_idx];
+            for _ in 0..4 {
+                let value = tiles_iter.next().unwrap();
                 if value == 0 {
-                    col += 1;
                     moved = true;
-                    continue;
                 } else if value == prev_value {
-                    board_vec[new_value_idx - 1] <<= 1;
-                    board_vec[value_idx] = 0;
-                    prev_value = 1;
+                    board = board
+                        .set_value_by_exponent(new_value_idx - 1, (value + 1) as u64)
+                        .set_value_by_exponent(value_idx, 0);
+                    prev_value = std::u8::MAX;
                     moved = true;
                 } else {
-                    board_vec[new_value_idx] = value;
                     if moved {
-                        board_vec[value_idx] = 0;
+                        board = board
+                            .set_value_by_exponent(new_value_idx, value as u64)
+                            .set_value_by_exponent(value_idx, 0);
                     }
                     prev_value = value;
                     new_value_idx += 1;
                 }
-                col += 1;
+                value_idx += 1;
             }
         }
-        board_vec.into()
+        board
     }
 
     fn into_right(self) -> Self {
-        let mut board_vec: Vec<_> = self.into();
-        for row in 0..4 {
-            // we can't use -1 here so we use 1 as it never appears in a board
-            let mut prev_value = 1;
-            let mut new_value_idx = 4 * row + 3;
-            let mut col = 3;
+        let mut board = self;
+        let mut reversed_tiles_iter = self.into_reversed_iter();
+        let mut value_idx = 15;
+        for _ in 0..4 {
+            // we can't use -1 here
+            let mut prev_value = std::u8::MAX;
+            let mut new_value_idx = value_idx;
             // whether or not cells have been moved in this row
             let mut moved = false;
-            loop {
-                let value_idx = 4 * row + col;
-                let value = board_vec[value_idx];
+            for _ in 0..4 {
+                let value = reversed_tiles_iter.next().unwrap();
                 if value == 0 {
-                    if col == 0 {
-                        break;
-                    }
-                    col -= 1;
                     moved = true;
-                    continue;
                 } else if value == prev_value {
-                    board_vec[new_value_idx + 1] <<= 1;
-                    board_vec[value_idx] = 0;
-                    prev_value = 1;
+                    board = board
+                        .set_value_by_exponent(new_value_idx + 1, (value + 1) as u64)
+                        .set_value_by_exponent(value_idx, 0);
+                    prev_value = std::u8::MAX;
                     moved = true;
                 } else {
-                    board_vec[new_value_idx] = value;
                     if moved {
-                        board_vec[value_idx] = 0;
+                        board = board
+                            .set_value_by_exponent(new_value_idx, value as u64)
+                            .set_value_by_exponent(value_idx, 0);
                     }
                     prev_value = value;
-                    if col > 0 {
+                    if new_value_idx > 0 {
                         new_value_idx -= 1;
                     }
                 }
-                if col == 0 {
-                    break;
+                if value_idx > 0 {
+                    value_idx -= 1;
                 }
-                col -= 1;
             }
         }
-        board_vec.into()
+        board
     }
 
     fn into_up(self) -> Self {
@@ -301,6 +297,36 @@ impl Iterator for BoardIntoIterator {
     }
 }
 
+impl Board {
+    pub fn into_reversed_iter(self) -> BoardIntoReversedIterator {
+        BoardIntoReversedIterator {
+            state: self.state,
+            index: 0,
+        }
+    }
+}
+
+pub struct BoardIntoReversedIterator {
+    state: u64,
+    index: u8,
+}
+
+impl Iterator for BoardIntoReversedIterator {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.index {
+            16 => None,
+            _ => {
+                let exponent = self.state & 15;
+                self.state >>= 4;
+                self.index += 1;
+                Some(exponent as u8)
+            }
+        }
+    }
+}
+
 impl From<Vec<u16>> for Board {
     fn from(tiles: Vec<u16>) -> Self {
         let mut state: u64 = 0;
@@ -372,6 +398,59 @@ mod tests {
         // Then
         let into_vec_board: Vec<u16> = board.into();
         assert_eq!(vec_board, into_vec_board);
+    }
+
+    #[test]
+    fn should_iterate_over_exponents() {
+        // Given
+        #[rustfmt::skip]
+        let vec_board: Vec<u16> = vec![
+            0, 2, 0, 0,
+            32768, 0, 0, 2,
+            0, 0, 16, 4,
+            8, 2, 16, 64
+        ];
+        let board = Board::from(vec_board.clone());
+
+        // When
+        let exponents: Vec<_> = board.into_iter().collect();
+
+        // Then
+        #[rustfmt::skip]
+        let expected_exponents = vec![
+            0, 1, 0, 0,
+            15, 0, 0, 1,
+            0, 0, 4, 2,
+            3, 1, 4, 6
+        ];
+        assert_eq!(expected_exponents, exponents);
+    }
+
+    #[test]
+    fn should_reverse_iterate_over_exponents() {
+        // Given
+        #[rustfmt::skip]
+        let vec_board: Vec<u16> = vec![
+            0, 2, 0, 0,
+            32768, 0, 0, 2,
+            0, 0, 16, 4,
+            8, 2, 16, 64
+        ];
+        let board = Board::from(vec_board.clone());
+
+        // When
+        let exponents: Vec<_> = board.into_reversed_iter().collect();
+
+        // Then
+        #[rustfmt::skip]
+         let mut expected_exponents = vec![
+            0, 1, 0, 0,
+            15, 0, 0, 1,
+            0, 0, 4, 2,
+            3, 1, 4, 6
+        ];
+        expected_exponents.reverse();
+        assert_eq!(expected_exponents, exponents);
     }
 
     #[test]
