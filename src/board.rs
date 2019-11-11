@@ -186,30 +186,30 @@ impl Board {
     }
 
     fn into_up(self) -> Self {
-        let mut board_vec: Vec<_> = self.into();
+        let mut board = self;
         for col in 0..4 {
-            // we can't use -1 here so we use 1 as it never appears in a board
-            let mut prev_value = 1;
+            // we can't use -1
+            let mut prev_value = std::u8::MAX;
             let mut new_value_idx = col;
             let mut row = 0;
             // whether or not cells have been moved in this row
             let mut moved = false;
             while row < 4 {
                 let value_idx = 4 * row + col;
-                let value = board_vec[value_idx];
+                let value = board.get_exponent_value(value_idx);
                 if value == 0 {
-                    row += 1;
                     moved = true;
-                    continue;
                 } else if value == prev_value {
-                    board_vec[new_value_idx - 4] <<= 1;
-                    board_vec[value_idx] = 0;
-                    prev_value = 1;
+                    board = board
+                        .set_value_by_exponent(new_value_idx - 4, (value + 1) as u64)
+                        .set_value_by_exponent(value_idx, 0);
+                    prev_value = std::u8::MAX;
                     moved = true;
                 } else {
-                    board_vec[new_value_idx] = value;
                     if moved {
-                        board_vec[value_idx] = 0;
+                        board = board
+                            .set_value_by_exponent(new_value_idx, value as u64)
+                            .set_value_by_exponent(value_idx, 0);
                     }
                     prev_value = value;
                     new_value_idx += 4;
@@ -217,37 +217,34 @@ impl Board {
                 row += 1;
             }
         }
-        board_vec.into()
+        board
     }
 
     fn into_down(self) -> Self {
-        let mut board_vec: Vec<_> = self.into();
+        let mut board = self;
         for col in 0..4 {
-            // we can't use -1 here so we use 1 as it never appears in a board
-            let mut prev_value = 1;
+            // we can't use -1 here
+            let mut prev_value = std::u8::MAX;
             let mut new_value_idx = 4 * 3 + col;
             let mut row = 3;
             // whether or not cells have been moved in this row
             let mut moved = false;
             loop {
                 let value_idx = 4 * row + col;
-                let value = board_vec[value_idx];
+                let value = board.get_exponent_value(value_idx);
                 if value == 0 {
-                    if row == 0 {
-                        break;
-                    }
-                    row -= 1;
                     moved = true;
-                    continue;
                 } else if value == prev_value {
-                    board_vec[new_value_idx + 4] <<= 1;
-                    board_vec[value_idx] = 0;
-                    prev_value = 1;
+                    board = board
+                        .set_value_by_exponent(new_value_idx + 4, (value + 1) as u64)
+                        .set_value_by_exponent(value_idx, 0);
+                    prev_value = std::u8::MAX;
                     moved = true;
                 } else {
-                    board_vec[new_value_idx] = value;
                     if moved {
-                        board_vec[value_idx] = 0;
+                        board = board
+                            .set_value_by_exponent(new_value_idx, value as u64)
+                            .set_value_by_exponent(value_idx, 0);
                     }
                     prev_value = value;
                     if row > 0 {
@@ -260,7 +257,7 @@ impl Board {
                 row -= 1;
             }
         }
-        board_vec.into()
+        board
     }
 }
 
