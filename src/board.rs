@@ -67,20 +67,30 @@ impl Board {
         2 << (exponent - 1) as u16
     }
 
+    pub fn get_exponent_value(&self, tile_idx: u8) -> u8 {
+        ((self.state >> 4 * (15 - tile_idx as u64)) & 15) as u8
+    }
+
     /// Sets the value `tile_value` at the index `tile_idx`
     pub fn set_value(self, tile_idx: u8, tile_value: u16) -> Self {
+        let exponent = get_exponent(tile_value);
+        self.set_value_by_exponent(tile_idx, exponent)
+    }
+
+    /// Sets the value `tile_value` at the index `tile_idx`
+    pub fn set_value_by_exponent(self, tile_idx: u8, value_exponent: u64) -> Self {
         let bits_shift = ((15 - tile_idx) * 4) as u64;
         // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
         let clear_mask = !(15 << bits_shift);
-        let exponent = get_exponent(tile_value);
-        let update_mask = exponent << bits_shift;
+        let update_mask = value_exponent << bits_shift;
         let new_state = (self.state & clear_mask) | update_mask;
         Board { state: new_state }
     }
 
     /// Returns the maximum value of the board
     pub fn max_value(self) -> u16 {
-        self.into_iter().max().unwrap()
+        let exponent = self.into_iter().max().unwrap();
+        2 << (exponent - 1) as u16
     }
 
     /// Returns the indices of empty tiles
@@ -259,7 +269,7 @@ impl Board {
 }
 
 impl IntoIterator for Board {
-    type Item = u16;
+    type Item = u8;
     type IntoIter = BoardIntoIterator;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -276,20 +286,16 @@ pub struct BoardIntoIterator {
 }
 
 impl Iterator for BoardIntoIterator {
-    type Item = u16;
+    type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.index {
             16 => None,
             _ => {
-                self.index += 1;
                 let exponent = self.state >> 60;
                 self.state <<= 4;
-                if exponent == 0 {
-                    Some(0)
-                } else {
-                    Some(2 << (exponent - 1) as u16)
-                }
+                self.index += 1;
+                Some(exponent as u8)
             }
         }
     }
@@ -308,7 +314,16 @@ impl From<Vec<u16>> for Board {
 
 impl From<Board> for Vec<u16> {
     fn from(board: Board) -> Self {
-        board.into_iter().collect()
+        board
+            .into_iter()
+            .map(|tile_exponent| {
+                if tile_exponent == 0 {
+                    0
+                } else {
+                    2 << (tile_exponent - 1) as u16
+                }
+            })
+            .collect()
     }
 }
 
@@ -316,7 +331,7 @@ impl Display for Board {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         let mut display = String::new();
         display.push_str("\n+-------+-------+-------+-------+\n");
-        for (i, tile) in self.into_iter().enumerate() {
+        for (i, tile) in Vec::from(*self).into_iter().enumerate() {
             display.push_str(&*format!("| {}\t", tile));
             if tile < 10 {
                 display.push_str("\t");
@@ -380,6 +395,36 @@ mod tests {
     }
 
     #[test]
+    fn should_get_value() {
+        // Given
+        #[rustfmt::skip]
+         let board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 0, 4, 0,
+            4, 2, 0, 512,
+            16, 8, 32, 32,
+        ]);
+
+        // When / Then
+        assert_eq!(512, board.get_value(11));
+    }
+
+    #[test]
+    fn should_get_exponent_value() {
+        // Given
+        #[rustfmt::skip]
+            let board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 0, 4, 0,
+            4, 2, 0, 512,
+            16, 8, 32, 32,
+        ]);
+
+        // When / Then
+        assert_eq!(9, board.get_exponent_value(11));
+    }
+
+    #[test]
     fn should_set_value() {
         // Given
         #[rustfmt::skip]
@@ -396,6 +441,33 @@ mod tests {
         // Then
         #[rustfmt::skip]
         let expected_board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 32, 4, 0,
+            64, 2, 0, 512,
+            16, 8, 32, 32,
+        ]);
+        assert_eq!(expected_board, board);
+    }
+
+    #[test]
+    fn should_set_value_by_exponent() {
+        // Given
+        #[rustfmt::skip]
+            let board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 0, 4, 0,
+            4, 2, 0, 512,
+            16, 8, 32, 32,
+        ]);
+
+        // When
+        let board = board
+            .set_value_by_exponent(5, 5)
+            .set_value_by_exponent(8, 6);
+
+        // Then
+        #[rustfmt::skip]
+            let expected_board = Board::from(vec![
             0, 4, 0, 2,
             2, 32, 4, 0,
             64, 2, 0, 512,

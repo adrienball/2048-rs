@@ -17,12 +17,14 @@ impl BoardEvaluator for ZeroCountEvaluator {
     }
 }
 
+/// Simple `BoardEvaluator` implementation which evaluation is just a normalized sum of the
+/// tiles exponents
 pub struct SumEvaluator;
 
 impl BoardEvaluator for SumEvaluator {
     fn evaluate(&self, board: Board) -> f32 {
-        let sum: u16 = board.into_iter().sum();
-        sum as f32 / (32768 * 16) as f32
+        let sum: u8 = board.into_iter().sum();
+        sum as f32 / 15. * 16.
     }
 }
 
@@ -30,65 +32,52 @@ pub struct InversionEvaluator;
 
 impl BoardEvaluator for InversionEvaluator {
     fn evaluate(&self, board: Board) -> f32 {
-        let inversions = self.row_inversions(board) + self.column_inversions(board);
-        // 16 is the max number of inversions
-        1. - inversions as f32 / 16.
+        let inversion_factor =
+            self.row_inversion_factor(board) + self.column_inversion_factor(board);
+        // 240 = 16 * 15 is the max number of inversions
+        1. - inversion_factor as f32 / 240.
     }
 }
 
 impl InversionEvaluator {
-    fn row_inversions(&self, board: Board) -> usize {
-        let mut inversions = 0;
+    fn row_inversion_factor(&self, board: Board) -> u8 {
+        let mut inversion_factor = 0;
         for row in 0..4 {
-            let mut left_value = board.get_value(4 * row);
+            let mut left_value = board.get_exponent_value(4 * row);
             let mut left_right_inversions = 0;
             let mut right_left_inversions = 0;
             for col in 1..4 {
-                let v = board.get_value(4 * row + col);
-                if left_value == 0 {
-                    left_value = v;
-                    continue;
-                }
-                if v == 0 {
-                    continue;
-                }
+                let v = board.get_exponent_value(4 * row + col);
                 if v < left_value {
-                    left_right_inversions += 1;
+                    left_right_inversions += left_value - v;
                 } else if v > left_value {
-                    right_left_inversions += 1;
+                    right_left_inversions += v - left_value;
                 }
                 left_value = v;
             }
-            inversions += min(left_right_inversions, right_left_inversions);
+            inversion_factor += min(left_right_inversions, right_left_inversions);
         }
-        inversions
+        inversion_factor
     }
 
-    fn column_inversions(&self, board: Board) -> usize {
-        let mut inversions = 0;
+    fn column_inversion_factor(&self, board: Board) -> u8 {
+        let mut inversion_factor = 0;
         for col in 0..4 {
-            let mut up_value = board.get_value(col);
+            let mut up_value = board.get_exponent_value(col);
             let mut up_bottom_inversions = 0;
             let mut bottom_up_inversions = 0;
             for row in 1..4 {
-                let v = board.get_value(4 * row + col);
-                if up_value == 0 {
-                    up_value = v;
-                    continue;
-                }
-                if v == 0 {
-                    continue;
-                }
+                let v = board.get_exponent_value(4 * row + col);
                 if v < up_value {
-                    up_bottom_inversions += 1;
+                    up_bottom_inversions += up_value - v;
                 } else if v > up_value {
-                    bottom_up_inversions += 1;
+                    bottom_up_inversions += v - up_value;
                 }
                 up_value = v;
             }
-            inversions += min(up_bottom_inversions, bottom_up_inversions);
+            inversion_factor += min(up_bottom_inversions, bottom_up_inversions);
         }
-        inversions
+        inversion_factor
     }
 }
 
@@ -122,17 +111,17 @@ mod tests {
             2, 4, 2, 4,
             8, 256, 0, 512,
             0, 0, 1024, 4,
-            8, 2, 16, 64
+            8, 2, 16, 64,
         ];
         let board = Board::from(vec_board);
         let evaluator = InversionEvaluator {};
 
         // When
-        let row_inversions = evaluator.row_inversions(board);
-        let col_inversions = evaluator.column_inversions(board);
-        assert_eq!(2, row_inversions);
-        assert_eq!(3, col_inversions);
+        let row_inversions = evaluator.row_inversion_factor(board);
+        let col_inversions = evaluator.column_inversion_factor(board);
+        assert_eq!(19, row_inversions);
+        assert_eq!(24, col_inversions);
         let evaluation = evaluator.evaluate(board);
-        assert_eq!(1. - 5. / 16., evaluation);
+        assert_eq!(1. - (24. + 19.) / (15. * 16.), evaluation);
     }
 }

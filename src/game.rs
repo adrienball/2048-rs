@@ -23,6 +23,10 @@ impl Game {
         self.board = self.board.set_value(empty_tiles[rnd_idx], populated_value);
         self
     }
+
+    pub fn score(&self) -> u16 {
+        self.board.max_value()
+    }
 }
 
 pub struct GameBuilder {
