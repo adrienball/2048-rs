@@ -66,7 +66,7 @@ impl Board {
     /// Returns the value at the corresponding index
     /// The underlying vector representation is used here
     pub fn get_value(&self, tile_idx: u8) -> u16 {
-        let exponent = (self.state >> 4 * (15 - tile_idx as u64)) & 0b1111;
+        let exponent = self.get_exponent_value(tile_idx);
         if exponent == 0 {
             return 0;
         }

@@ -3,8 +3,8 @@ use rand::prelude::ThreadRng;
 use rand::Rng;
 
 pub struct Game {
-    board: Board,
-    proba_4: f32,
+    pub board: Board,
+    pub proba_4: f32,
     rng: ThreadRng,
 }
 
