@@ -32,7 +32,7 @@ use std::fmt::{Debug, Display, Formatter};
 /// let board_repr: u64 = 2u64.pow(0 + 0) + 2u64.pow(1 + 0) + 2u64.pow(2 + 8) + 2u64.pow(1 + 20);
 /// assert_eq!(board_repr, board.state);
 /// ```
-#[derive(Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Board {
     state: u64,
 }
