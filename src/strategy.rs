@@ -1,35 +1,32 @@
 use crate::board::{Board, Direction};
 use crate::evaluators::BoardEvaluator;
-use rand::prelude::ThreadRng;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
-use std::cmp::min;
 
 pub struct Strategy {
     board_evaluator: Box<dyn BoardEvaluator>,
-    max_exploration_depth: usize,
-    max_draws: usize,
+    proba_4: f32,
+    max_search_depth: usize,
     gameover_penalty: f32,
-    rng: ThreadRng,
+    min_branch_proba: f32,
 }
 
 impl Strategy {
     pub fn new(
         evaluator: Box<dyn BoardEvaluator>,
-        max_exploration_depth: usize,
-        max_draws: usize,
+        proba_4: f32,
+        max_search_depth: usize,
         gameover_penalty: f32,
+        min_branch_proba: f32,
     ) -> Self {
         Self {
             board_evaluator: evaluator,
-            max_exploration_depth,
-            rng: thread_rng(),
-            max_draws,
+            proba_4,
+            max_search_depth,
             gameover_penalty,
+            min_branch_proba,
         }
     }
 
-    pub fn next_best_move(&mut self, board: Board, proba_4: f32) -> Option<Direction> {
+    pub fn next_best_move(&mut self, board: Board) -> Option<Direction> {
         Direction::all()
             .iter()
             .filter_map(|direction| {
@@ -37,24 +34,23 @@ impl Strategy {
                 if board == new_board {
                     return None;
                 }
-                let score = self.evaluate(new_board, self.max_exploration_depth as usize, proba_4);
+                let score = self.evaluate(new_board, self.max_search_depth as usize);
                 Some((direction, score))
             })
             .max_by(|(_, lhs_score), (_, rhs_score)| lhs_score.partial_cmp(rhs_score).unwrap())
             .map(|(d, _)| *d)
     }
 
-    fn evaluate(&mut self, board: Board, depth: usize, proba_4: f32) -> f32 {
+    fn evaluate(&mut self, board: Board, depth: usize) -> f32 {
         if depth == 0 {
             let eval = self.board_evaluator.evaluate(board);
             return eval;
         }
-        let mut empty_tiles_indices = board.empty_tiles_indices();
-        empty_tiles_indices.shuffle(&mut self.rng);
+        let empty_tiles_indices = board.empty_tiles_indices();
         let nb_empty_tiles = empty_tiles_indices.len();
+        let proba_4 = self.proba_4;
         let scores_sum: f32 = empty_tiles_indices
             .into_iter()
-            .take(self.max_draws)
             .flat_map(|idx| vec![(idx, 1, 1. - proba_4), (idx, 2, proba_4)].into_iter())
             .map(|(idx, draw, proba)| {
                 let board_with_draw = board.set_value_by_exponent(idx, draw);
@@ -65,14 +61,14 @@ impl Strategy {
                         if board_with_draw == new_board {
                             return None;
                         }
-                        Some(self.evaluate(new_board, depth - 1, proba_4))
+                        Some(self.evaluate(new_board, depth - 1))
                     })
                     .max_by(|lhs, rhs| lhs.partial_cmp(rhs).unwrap())
                     .unwrap_or(self.gameover_penalty);
                 draw_score * proba
             })
             .sum();
-        scores_sum / min(self.max_draws, nb_empty_tiles) as f32
+        scores_sum / nb_empty_tiles as f32
     }
 }
 
@@ -90,7 +86,7 @@ mod tests {
             }
         }
 
-        let mut strategy = Strategy::new(Box::new(DummyEvaluator {}), 2, 4, 0.);
+        let mut strategy = Strategy::new(Box::new(DummyEvaluator {}), 0., 2, 0., 0.);
 
         #[rustfmt::skip]
         let board: Board = Board::from(vec![
@@ -101,7 +97,7 @@ mod tests {
         ]);
 
         // When
-        let direction = strategy.next_best_move(board, 0.0);
+        let direction = strategy.next_best_move(board);
 
         // Then
         assert_eq!(Some(Direction::Down), direction);
