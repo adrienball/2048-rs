@@ -2,7 +2,7 @@ use crate::board::{Board, Direction};
 use crate::evaluators::{BoardEvaluator, InversionEvaluator, PrecomputedEvaluator};
 use fnv::FnvHashMap;
 
-pub struct Strategy {
+pub struct Solver {
     board_evaluator: Box<dyn BoardEvaluator>,
     proba_4: f32,
     max_search_depth: usize,
@@ -11,7 +11,7 @@ pub struct Strategy {
     transposition_table: FnvHashMap<Board, f32>,
 }
 
-pub struct StrategyBuilder {
+pub struct SolverBuilder {
     board_evaluator: Box<dyn BoardEvaluator>,
     proba_4: f32,
     max_search_depth: usize,
@@ -19,7 +19,7 @@ pub struct StrategyBuilder {
     min_branch_proba: f32,
 }
 
-impl Default for StrategyBuilder {
+impl Default for SolverBuilder {
     fn default() -> Self {
         Self {
             board_evaluator: Box::new(PrecomputedEvaluator::new(InversionEvaluator {})),
@@ -31,7 +31,7 @@ impl Default for StrategyBuilder {
     }
 }
 
-impl StrategyBuilder {
+impl SolverBuilder {
     pub fn board_evaluator<T>(mut self, evaluator: T) -> Self
     where
         T: BoardEvaluator + 'static,
@@ -60,8 +60,8 @@ impl StrategyBuilder {
         self
     }
 
-    pub fn build(self) -> Strategy {
-        Strategy {
+    pub fn build(self) -> Solver {
+        Solver {
             board_evaluator: self.board_evaluator,
             proba_4: self.proba_4,
             max_search_depth: self.max_search_depth,
@@ -72,7 +72,7 @@ impl StrategyBuilder {
     }
 }
 
-impl Strategy {
+impl Solver {
     pub fn new(
         evaluator: Box<dyn BoardEvaluator>,
         proba_4: f32,
@@ -159,7 +159,7 @@ mod tests {
             }
         }
 
-        let mut strategy = StrategyBuilder::default()
+        let mut strategy = SolverBuilder::default()
             .board_evaluator(DummyEvaluator {})
             .max_search_depth(2)
             .build();
