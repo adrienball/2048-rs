@@ -1,5 +1,5 @@
 use crate::board::{Board, Direction};
-use crate::evaluators::BoardEvaluator;
+use crate::evaluators::{BoardEvaluator, InversionEvaluator, PrecomputedEvaluator};
 use fnv::FnvHashMap;
 
 pub struct Strategy {
@@ -9,6 +9,67 @@ pub struct Strategy {
     gameover_penalty: f32,
     min_branch_proba: f32,
     transposition_table: FnvHashMap<Board, f32>,
+}
+
+pub struct StrategyBuilder {
+    board_evaluator: Box<dyn BoardEvaluator>,
+    proba_4: f32,
+    max_search_depth: usize,
+    gameover_penalty: f32,
+    min_branch_proba: f32,
+}
+
+impl Default for StrategyBuilder {
+    fn default() -> Self {
+        Self {
+            board_evaluator: Box::new(PrecomputedEvaluator::new(InversionEvaluator {})),
+            proba_4: 0.1,
+            max_search_depth: 5,
+            gameover_penalty: -200.,
+            min_branch_proba: 0.1 * 0.1,
+        }
+    }
+}
+
+impl StrategyBuilder {
+    pub fn board_evaluator<T>(mut self, evaluator: T) -> Self
+    where
+        T: BoardEvaluator + 'static,
+    {
+        self.board_evaluator = Box::new(evaluator);
+        self
+    }
+
+    pub fn proba_4(mut self, proba_4: f32) -> Self {
+        self.proba_4 = proba_4;
+        self
+    }
+
+    pub fn max_search_depth(mut self, max_search_depth: usize) -> Self {
+        self.max_search_depth = max_search_depth;
+        self
+    }
+
+    pub fn gameover_penalty(mut self, penalty: f32) -> Self {
+        self.gameover_penalty = penalty;
+        self
+    }
+
+    pub fn min_branch_proba(mut self, proba: f32) -> Self {
+        self.min_branch_proba = proba;
+        self
+    }
+
+    pub fn build(self) -> Strategy {
+        Strategy {
+            board_evaluator: self.board_evaluator,
+            proba_4: self.proba_4,
+            max_search_depth: self.max_search_depth,
+            gameover_penalty: self.gameover_penalty,
+            min_branch_proba: self.min_branch_proba,
+            transposition_table: Default::default(),
+        }
+    }
 }
 
 impl Strategy {
@@ -98,7 +159,10 @@ mod tests {
             }
         }
 
-        let mut strategy = Strategy::new(Box::new(DummyEvaluator {}), 0., 2, 0., 0.);
+        let mut strategy = StrategyBuilder::default()
+            .board_evaluator(DummyEvaluator {})
+            .max_search_depth(2)
+            .build();
 
         #[rustfmt::skip]
         let board: Board = Board::from(vec![
