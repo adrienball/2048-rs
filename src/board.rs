@@ -1,4 +1,5 @@
-use crate::utils::get_exponent;
+use crate::utils::{build_left_moves_table, build_right_moves_table, get_exponent};
+use lazy_static::lazy_static;
 use std::fmt::{Debug, Display, Formatter};
 
 /// `Board` is the main object of the 2048 game. It represents the state of the 16 tiles.
@@ -56,19 +57,27 @@ impl Direction {
     }
 }
 
+lazy_static! {
+    static ref LEFT_MOVES_TABLE: Vec<u16> = build_left_moves_table();
+    static ref RIGHT_MOVES_TABLE: Vec<u16> = build_right_moves_table();
+}
+
 impl Board {
     /// Returns the value at the corresponding index
     /// The underlying vector representation is used here
     pub fn get_value(&self, tile_idx: u8) -> u16 {
-        let exponent = (self.state >> 4 * (15 - tile_idx as u64)) & 15;
+        let exponent = (self.state >> 4 * (15 - tile_idx as u64)) & 0b1111;
         if exponent == 0 {
             return 0;
         }
         2 << (exponent - 1) as u16
     }
 
+    /// Returns the exponent of the value at the corresponding index
+    /// For example, if `get_value(3)` returns `512`, then `get_exponent_value(3)` will return `9`
+    /// because 512 = 2^9
     pub fn get_exponent_value(&self, tile_idx: u8) -> u8 {
-        ((self.state >> 4 * (15 - tile_idx as u64)) & 15) as u8
+        ((self.state >> 4 * (15 - tile_idx as u64)) & 0b1111) as u8
     }
 
     /// Sets the value `tile_value` at the index `tile_idx`
@@ -77,14 +86,32 @@ impl Board {
         self.set_value_by_exponent(tile_idx, exponent)
     }
 
-    /// Sets the value `tile_value` at the index `tile_idx`
+    /// Sets the value `tile_value` at the index `tile_idx` by specifying the exponent directly.
+    /// For example, `set_value_by_exponent(3, 9)` is equivalent to `set_value(3, 512)`
+    /// because 512 = 2^9
     pub fn set_value_by_exponent(self, tile_idx: u8, value_exponent: u64) -> Self {
         let bits_shift = ((15 - tile_idx) * 4) as u64;
         // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
-        let clear_mask = !(15 << bits_shift);
+        let clear_mask = !(0b1111 << bits_shift);
         let update_mask = value_exponent << bits_shift;
         let new_state = (self.state & clear_mask) | update_mask;
         Board { state: new_state }
+    }
+
+    /// Returns the 16 bits of the the specified row
+    pub fn get_row(&self, row_idx: u8) -> u16 {
+        let bit_shift = ((3 - row_idx) * 16) as u64;
+        ((self.state & (0b1111111111111111u64 << bit_shift)) >> bit_shift) as u16
+    }
+
+    /// Returns the 16 bits of the the specified column
+    pub fn get_column(&self, col_idx: u8) -> u16 {
+        let col_shift: u64 = 4 * (3 - col_idx as u64);
+        let mut column = (self.state >> col_shift) & 0b1111;
+        column |= ((self.state >> (col_shift + 16)) << 4) & 0b11110000;
+        column |= ((self.state >> (col_shift + 32)) << 8) & 0b111100000000;
+        column |= ((self.state >> (col_shift + 48)) << 12) & 0b1111000000000000;
+        column as u16
     }
 
     /// Returns the maximum value of the board
@@ -101,7 +128,7 @@ impl Board {
             if tile == 0 {
                 indices.push(i)
             }
-            i+=1;
+            i += 1;
         }
         indices
     }
@@ -117,152 +144,49 @@ impl Board {
     }
 
     fn into_left(self) -> Self {
-        let mut board = self;
-        let mut tiles_iter = self.into_iter();
-        let mut value_idx = 0;
-        for _ in 0..4 {
-            // we can't use -1 here
-            let mut prev_value = std::u8::MAX;
-            let mut new_value_idx = value_idx;
-            // whether or not tiles have been moved in this row
-            let mut moved = false;
-            for _ in 0..4 {
-                let value = tiles_iter.next().unwrap();
-                if value == 0 {
-                    moved = true;
-                } else if value == prev_value {
-                    board = board
-                        .set_value_by_exponent(new_value_idx - 1, (value + 1) as u64)
-                        .set_value_by_exponent(value_idx, 0);
-                    prev_value = std::u8::MAX;
-                    moved = true;
-                } else {
-                    if moved {
-                        board = board
-                            .set_value_by_exponent(new_value_idx, value as u64)
-                            .set_value_by_exponent(value_idx, 0);
-                    }
-                    prev_value = value;
-                    new_value_idx += 1;
-                }
-                value_idx += 1;
-            }
+        let mut state: u64 = 0;
+        for row_idx in 0..4 {
+            let row = self.get_row(row_idx);
+            state |= (LEFT_MOVES_TABLE[row as usize] as u64) << (16 * (3 - row_idx) as u64);
         }
-        board
+        Self { state }
     }
 
     fn into_right(self) -> Self {
-        let mut board = self;
-        let mut reversed_tiles_iter = self.into_reversed_iter();
-        let mut value_idx = 15;
-        for _ in 0..4 {
-            // we can't use -1 here
-            let mut prev_value = std::u8::MAX;
-            let mut new_value_idx = value_idx;
-            // whether or not cells have been moved in this row
-            let mut moved = false;
-            for _ in 0..4 {
-                let value = reversed_tiles_iter.next().unwrap();
-                if value == 0 {
-                    moved = true;
-                } else if value == prev_value {
-                    board = board
-                        .set_value_by_exponent(new_value_idx + 1, (value + 1) as u64)
-                        .set_value_by_exponent(value_idx, 0);
-                    prev_value = std::u8::MAX;
-                    moved = true;
-                } else {
-                    if moved {
-                        board = board
-                            .set_value_by_exponent(new_value_idx, value as u64)
-                            .set_value_by_exponent(value_idx, 0);
-                    }
-                    prev_value = value;
-                    if new_value_idx > 0 {
-                        new_value_idx -= 1;
-                    }
-                }
-                if value_idx > 0 {
-                    value_idx -= 1;
-                }
-            }
+        let mut state: u64 = 0;
+        for row_idx in 0..4 {
+            let row = self.get_row(row_idx);
+            state |= (RIGHT_MOVES_TABLE[row as usize] as u64) << (16 * (3 - row_idx) as u64);
         }
-        board
+        Self { state }
     }
 
     fn into_up(self) -> Self {
-        let mut board = self;
-        for col in 0..4 {
-            // we can't use -1
-            let mut prev_value = std::u8::MAX;
-            let mut new_value_idx = col;
-            let mut row = 0;
-            // whether or not cells have been moved in this row
-            let mut moved = false;
-            while row < 4 {
-                let value_idx = 4 * row + col;
-                let value = board.get_exponent_value(value_idx);
-                if value == 0 {
-                    moved = true;
-                } else if value == prev_value {
-                    board = board
-                        .set_value_by_exponent(new_value_idx - 4, (value + 1) as u64)
-                        .set_value_by_exponent(value_idx, 0);
-                    prev_value = std::u8::MAX;
-                    moved = true;
-                } else {
-                    if moved {
-                        board = board
-                            .set_value_by_exponent(new_value_idx, value as u64)
-                            .set_value_by_exponent(value_idx, 0);
-                    }
-                    prev_value = value;
-                    new_value_idx += 4;
-                }
-                row += 1;
-            }
+        let mut state = 0;
+        for col_idx in 0..4 {
+            let col = self.get_column(col_idx);
+            let up_col = LEFT_MOVES_TABLE[col as usize] as u64;
+            let col_shift = 4 * (3 - col_idx) as u64;
+            state |= (up_col & 0b1111000000000000) << 36 + col_shift;
+            state |= (up_col & 0b111100000000) << 24 + col_shift;
+            state |= (up_col & 0b11110000) << 12 + col_shift;
+            state |= (up_col & 0b1111) << col_shift;
         }
-        board
+        Self { state }
     }
 
     fn into_down(self) -> Self {
-        let mut board = self;
-        for col in 0..4 {
-            // we can't use -1 here
-            let mut prev_value = std::u8::MAX;
-            let mut new_value_idx = 4 * 3 + col;
-            let mut row = 3;
-            // whether or not cells have been moved in this row
-            let mut moved = false;
-            loop {
-                let value_idx = 4 * row + col;
-                let value = board.get_exponent_value(value_idx);
-                if value == 0 {
-                    moved = true;
-                } else if value == prev_value {
-                    board = board
-                        .set_value_by_exponent(new_value_idx + 4, (value + 1) as u64)
-                        .set_value_by_exponent(value_idx, 0);
-                    prev_value = std::u8::MAX;
-                    moved = true;
-                } else {
-                    if moved {
-                        board = board
-                            .set_value_by_exponent(new_value_idx, value as u64)
-                            .set_value_by_exponent(value_idx, 0);
-                    }
-                    prev_value = value;
-                    if row > 0 {
-                        new_value_idx -= 4;
-                    }
-                }
-                if row == 0 {
-                    break;
-                }
-                row -= 1;
-            }
+        let mut state = 0;
+        for col_idx in 0..4 {
+            let col = self.get_column(col_idx);
+            let up_col = RIGHT_MOVES_TABLE[col as usize] as u64;
+            let col_shift = 4 * (3 - col_idx) as u64;
+            state |= (up_col & 0b1111000000000000) << 36 + col_shift;
+            state |= (up_col & 0b111100000000) << 24 + col_shift;
+            state |= (up_col & 0b11110000) << 12 + col_shift;
+            state |= (up_col & 0b1111) << col_shift;
         }
-        board
+        Self { state }
     }
 }
 
@@ -320,7 +244,7 @@ impl Iterator for BoardIntoReversedIterator {
         match self.index {
             16 => None,
             _ => {
-                let exponent = self.state & 15;
+                let exponent = self.state & 0b1111;
                 self.state >>= 4;
                 self.index += 1;
                 Some(exponent as u8)
@@ -503,6 +427,36 @@ mod tests {
 
         // When / Then
         assert_eq!(9, board.get_exponent_value(11));
+    }
+
+    #[test]
+    fn should_get_row() {
+        // Given
+        #[rustfmt::skip]
+        let board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 0, 4, 0,
+            4, 2, 0, 512,
+            16, 8, 32, 32,
+        ]);
+
+        // When / Then
+        assert_eq!(0b0010000100001001, board.get_row(2));
+    }
+
+    #[test]
+    fn should_get_column() {
+        // Given
+        #[rustfmt::skip]
+            let board = Board::from(vec![
+            0, 4, 0, 2,
+            2, 0, 512, 0,
+            4, 2, 2, 512,
+            16, 8, 32, 32,
+        ]);
+
+        // When / Then
+        assert_eq!(0b0000100100010101, board.get_column(2));
     }
 
     #[test]
