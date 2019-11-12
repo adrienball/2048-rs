@@ -21,41 +21,17 @@ pub fn get_exponent(value: u16) -> u64 {
 }
 
 pub fn build_left_moves_table() -> Vec<u16> {
-    let mut table: Vec<u16> = (0..(std::u16::MAX as usize + 1))
+    (0..(std::u16::MAX as usize + 1))
         .into_iter()
-        .map(|x| x as u16)
-        .collect();
-    for i1 in 0..16 {
-        for i2 in 0..16 {
-            for i3 in 0..16 {
-                for i4 in 0..16 {
-                    let row: u16 = (i1 << 12) | (i2 << 8) | (i3 << 4) | i4;
-                    let left_move = get_left_move(row);
-                    table[row as usize] = left_move;
-                }
-            }
-        }
-    }
-    table
+        .map(|x| get_left_move(x as u16))
+        .collect()
 }
 
 pub fn build_right_moves_table() -> Vec<u16> {
-    let mut table: Vec<u16> = (0..(std::u16::MAX as usize + 1))
+    (0..(std::u16::MAX as usize + 1))
         .into_iter()
-        .map(|x| x as u16)
-        .collect();
-    for i1 in 0..16 {
-        for i2 in 0..16 {
-            for i3 in 0..16 {
-                for i4 in 0..16 {
-                    let row: u16 = (i1 << 12) | (i2 << 8) | (i3 << 4) | i4;
-                    let right_move = get_right_move(row);
-                    table[row as usize] = right_move;
-                }
-            }
-        }
-    }
-    table
+        .map(|x| get_right_move(x as u16))
+        .collect()
 }
 
 fn get_left_move(row: u16) -> u16 {
