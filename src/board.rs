@@ -302,9 +302,17 @@ impl Display for Board {
         let mut display = String::new();
         display.push_str("\n+-------+-------+-------+-------+\n");
         for (i, tile) in Vec::from(*self).into_iter().enumerate() {
-            display.push_str(&*format!("| {}\t", tile));
+            display.push_str(&*format!("| {}", tile));
             if tile < 10 {
-                display.push_str("\t");
+                display.push_str("     ");
+            } else if tile < 100 {
+                display.push_str("    ");
+            } else if tile < 1000 {
+                display.push_str("   ");
+            } else if tile < 10000 {
+                display.push_str("  ");
+            } else {
+                display.push_str(" ");
             }
             if i % 4 == 3 {
                 display.push_str("|\n");
@@ -700,13 +708,13 @@ mod tests {
         // Then
         let expected_display = r#"
 +-------+-------+-------+-------+
-| 0		| 2		| 0		| 32768	|
+| 0     | 2     | 0     | 32768 |
 +-------+-------+-------+-------+
-| 0		| 256	| 0		| 512	|
+| 0     | 256   | 0     | 512   |
 +-------+-------+-------+-------+
-| 0		| 0		| 1024	| 4		|
+| 0     | 0     | 1024  | 4     |
 +-------+-------+-------+-------+
-| 8		| 2		| 16	| 64	|
+| 8     | 2     | 16    | 64    |
 +-------+-------+-------+-------+
 "#;
         assert_eq!(expected_display, display);

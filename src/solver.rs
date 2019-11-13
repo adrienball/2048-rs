@@ -27,7 +27,7 @@ impl Default for SolverBuilder {
         Self {
             board_evaluator: Box::new(PrecomputedEvaluator::new(InversionEvaluator {})),
             proba_4: 0.1,
-            base_max_search_depth: 5,
+            base_max_search_depth: 3,
             gameover_penalty: -200.,
             min_branch_proba: 0.1 * 0.1,
             distinct_tiles_threshold: 4,
