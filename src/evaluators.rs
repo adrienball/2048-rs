@@ -7,7 +7,7 @@ pub trait BoardEvaluator {
     fn evaluate(&self, board: Board) -> f32;
 }
 
-/// Evaluate a `Board` by evaluating independently each row and column and adding the results
+/// Evaluate a `Board` by evaluating independently each row and column and summing the results
 pub trait RowColumnEvaluator {
     fn evaluate_row(&self, row: u16) -> f32;
 }

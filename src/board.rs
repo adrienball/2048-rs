@@ -133,6 +133,24 @@ impl Board {
         indices
     }
 
+    /// Returns the number of distinct tiles, excluding empty tiles
+    pub fn count_distinct_tiles(self) -> usize {
+        let mut bitset: u16 = 0;
+        let mut state = self.state;
+        while state != 0 {
+            bitset |= 1 << (state & 0b1111) as u16;
+            state >>= 4;
+        }
+        // exclude empty tiles from the count
+        bitset >>= 1;
+        let mut count: usize = 0;
+        while bitset != 0 {
+            bitset &= bitset - 1;
+            count += 1;
+        }
+        count
+    }
+
     /// Moves the tiles in the provided `Direction` and returns the resulting `Board`
     pub fn move_to(self, direction: Direction) -> Self {
         match direction {
@@ -645,6 +663,23 @@ mod tests {
         // When
         let empty_tiles = board.empty_tiles_indices();
         assert_eq!(vec![0, 2, 4, 6, 8, 9], empty_tiles);
+    }
+
+    #[test]
+    fn should_count_distinct_tiles() {
+        // Given
+        #[rustfmt::skip]
+        let vec_board = vec![
+            0, 2, 0, 2048,
+            0, 16, 0, 512,
+            0, 0, 8, 4,
+            8, 2, 16, 64
+        ];
+        let board = Board::from(vec_board);
+
+        // When
+        let distinct_tiles = board.count_distinct_tiles();
+        assert_eq!(7, distinct_tiles);
     }
 
     #[test]
