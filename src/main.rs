@@ -8,13 +8,10 @@ use std::str::FromStr;
 use std::time::{Duration, Instant};
 
 mod board;
-pub mod error;
 pub mod evaluators;
 pub mod game;
 pub mod solver;
 mod utils;
-
-pub type GameResult<T> = Result<T, error::Error>;
 
 fn main() {
     env_logger::Builder::from_default_env()
