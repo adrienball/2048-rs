@@ -1,6 +1,7 @@
 use crate::utils::{build_left_moves_table, build_right_moves_table, get_exponent};
 use lazy_static::lazy_static;
 use std::fmt::{Debug, Display, Formatter};
+use termion::color;
 
 /// `Board` is the main object of the 2048 game. It represents the state of the 16 tiles.
 ///
@@ -300,19 +301,41 @@ impl From<Board> for Vec<u16> {
 impl Display for Board {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         let mut display = String::new();
+        display.push_str("\n\r+-------+-------+-------+-------+\n\r");
+        for (i, tile) in Vec::from(*self).into_iter().enumerate() {
+            if tile == 0 {
+                display.push_str("|       ");
+            } else {
+                display.push_str(&*format!(
+                    "|{prefix}{color}{tile}{reset} ",
+                    prefix = get_spaces_prefix(tile),
+                    color = get_color(tile),
+                    tile = tile,
+                    reset = color::Fg(color::Reset)
+                ));
+            }
+            if i % 4 == 3 {
+                display.push_str("|\n\r");
+                display.push_str("+-------+-------+-------+-------+\n\r");
+            }
+        }
+        write!(f, "{}", display)
+    }
+}
+
+impl Debug for Board {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        let mut display = String::new();
         display.push_str("\n+-------+-------+-------+-------+\n");
         for (i, tile) in Vec::from(*self).into_iter().enumerate() {
-            display.push_str(&*format!("| {}", tile));
-            if tile < 10 {
-                display.push_str("     ");
-            } else if tile < 100 {
-                display.push_str("    ");
-            } else if tile < 1000 {
-                display.push_str("   ");
-            } else if tile < 10000 {
-                display.push_str("  ");
+            if tile == 0 {
+                display.push_str("|       ");
             } else {
-                display.push_str(" ");
+                display.push_str(&*format!(
+                    "|{prefix}{tile} ",
+                    prefix = get_spaces_prefix(tile),
+                    tile = tile,
+                ));
             }
             if i % 4 == 3 {
                 display.push_str("|\n");
@@ -323,9 +346,37 @@ impl Display for Board {
     }
 }
 
-impl Debug for Board {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{}", self)
+fn get_spaces_prefix(tile: u16) -> &'static str {
+    if tile < 10 {
+        "     "
+    } else if tile < 100 {
+        "    "
+    } else if tile < 1000 {
+        "   "
+    } else if tile < 10000 {
+        "  "
+    } else {
+        " "
+    }
+}
+
+fn get_color(tile: u16) -> color::Fg<color::Rgb> {
+    match tile {
+        2 => color::Fg(color::Rgb(238, 228, 218)),
+        4 => color::Fg(color::Rgb(237, 224, 200)),
+        8 => color::Fg(color::Rgb(242, 177, 121)),
+        16 => color::Fg(color::Rgb(245, 149, 99)),
+        32 => color::Fg(color::Rgb(246, 124, 95)),
+        64 => color::Fg(color::Rgb(246, 94, 59)),
+        128 => color::Fg(color::Rgb(237, 207, 114)),
+        256 => color::Fg(color::Rgb(237, 204, 97)),
+        512 => color::Fg(color::Rgb(237, 200, 80)),
+        1024 => color::Fg(color::Rgb(237, 197, 63)),
+        2048 => color::Fg(color::Rgb(237, 194, 46)),
+        4096 => color::Fg(color::Rgb(129, 214, 154)),
+        8192 => color::Fg(color::Rgb(129, 214, 154)),
+        32768 => color::Fg(color::Rgb(129, 214, 154)),
+        _ => panic!("Invalid tile value: {}", tile),
     }
 }
 
@@ -703,18 +754,18 @@ mod tests {
         let board = Board::from(vec_board);
 
         // When
-        let display = format!("{}", board);
+        let display = format!("{:?}", board);
 
         // Then
         let expected_display = r#"
 +-------+-------+-------+-------+
-| 0     | 2     | 0     | 32768 |
+|       |     2 |       | 32768 |
 +-------+-------+-------+-------+
-| 0     | 256   | 0     | 512   |
+|       |   256 |       |   512 |
 +-------+-------+-------+-------+
-| 0     | 0     | 1024  | 4     |
+|       |       |  1024 |     4 |
 +-------+-------+-------+-------+
-| 8     | 2     | 16    | 64    |
+|     8 |     2 |    16 |    64 |
 +-------+-------+-------+-------+
 "#;
         assert_eq!(expected_display, display);

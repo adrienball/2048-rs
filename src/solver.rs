@@ -1,5 +1,5 @@
 use crate::board::{Board, Direction};
-use crate::evaluators::{BoardEvaluator, InversionEvaluator, PrecomputedEvaluator};
+use crate::evaluators::{BoardEvaluator, MonotonicityEvaluator, PrecomputedBoardEvaluator};
 use fnv::FnvHashMap;
 use std::cmp::max;
 
@@ -7,7 +7,6 @@ pub struct Solver {
     board_evaluator: Box<dyn BoardEvaluator>,
     proba_4: f32,
     base_max_search_depth: usize,
-    gameover_penalty: f32,
     min_branch_proba: f32,
     distinct_tiles_threshold: usize,
     transposition_table: FnvHashMap<Board, (f32, usize)>,
@@ -17,7 +16,6 @@ pub struct SolverBuilder {
     board_evaluator: Box<dyn BoardEvaluator>,
     proba_4: f32,
     base_max_search_depth: usize,
-    gameover_penalty: f32,
     min_branch_proba: f32,
     distinct_tiles_threshold: usize,
 }
@@ -25,10 +23,11 @@ pub struct SolverBuilder {
 impl Default for SolverBuilder {
     fn default() -> Self {
         Self {
-            board_evaluator: Box::new(PrecomputedEvaluator::new(InversionEvaluator {})),
+            board_evaluator: Box::new(PrecomputedBoardEvaluator::new(
+                MonotonicityEvaluator::default(),
+            )),
             proba_4: 0.1,
             base_max_search_depth: 3,
-            gameover_penalty: -200.,
             min_branch_proba: 0.1 * 0.1,
             distinct_tiles_threshold: 4,
         }
@@ -60,12 +59,6 @@ impl SolverBuilder {
         self
     }
 
-    /// Sets the penalty to apply to 'dead-end' branches
-    pub fn gameover_penalty(mut self, penalty: f32) -> Self {
-        self.gameover_penalty = penalty;
-        self
-    }
-
     /// Sets the minimum probability for a branch to be explored
     pub fn min_branch_proba(mut self, proba: f32) -> Self {
         self.min_branch_proba = proba;
@@ -84,7 +77,6 @@ impl SolverBuilder {
             board_evaluator: self.board_evaluator,
             proba_4: self.proba_4,
             base_max_search_depth: self.base_max_search_depth,
-            gameover_penalty: self.gameover_penalty,
             min_branch_proba: self.min_branch_proba,
             distinct_tiles_threshold: self.distinct_tiles_threshold,
             transposition_table: Default::default(),
@@ -93,25 +85,6 @@ impl SolverBuilder {
 }
 
 impl Solver {
-    pub fn new(
-        evaluator: Box<dyn BoardEvaluator>,
-        proba_4: f32,
-        base_max_search_depth: usize,
-        gameover_penalty: f32,
-        min_branch_proba: f32,
-        distinct_tiles_threshold: usize,
-    ) -> Self {
-        Self {
-            board_evaluator: evaluator,
-            proba_4,
-            base_max_search_depth,
-            gameover_penalty,
-            min_branch_proba,
-            distinct_tiles_threshold,
-            transposition_table: FnvHashMap::default(),
-        }
-    }
-
     pub fn next_best_move(&mut self, board: Board) -> Option<Direction> {
         let max_depth = max(
             self.base_max_search_depth as isize,
@@ -163,7 +136,7 @@ impl Solver {
                     let max_score = self
                         .eval_max(board_with_draw, remaining_depth - 1, branch_proba * proba)
                         .map(|(_, score)| score)
-                        .unwrap_or(self.gameover_penalty);
+                        .unwrap_or(self.board_evaluator.gameover_penalty());
                     max_score * proba
                 })
                 .sum();
@@ -186,6 +159,10 @@ mod tests {
         impl BoardEvaluator for DummyEvaluator {
             fn evaluate(&self, board: Board) -> f32 {
                 board.max_value() as f32 / 32768.
+            }
+
+            fn gameover_penalty(&self) -> f32 {
+                0.
             }
         }
 

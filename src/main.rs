@@ -1,24 +1,31 @@
-use crate::board::Board;
+use crate::board::{Board, Direction};
 use crate::evaluators::*;
-use crate::game::GameBuilder;
-use crate::solver::SolverBuilder;
-use clap::{App, AppSettings, Arg};
-use log::info;
+use crate::game::{Game, GameBuilder};
+use crate::solver::{Solver, SolverBuilder};
+use clap::{App, AppSettings, Arg, ArgMatches};
+use std::io::{stdout, StdoutLock, Write};
 use std::str::FromStr;
+use std::thread::sleep;
 use std::time::{Duration, Instant};
+use termion::event::Key;
+use termion::input::TermRead;
+use termion::raw::IntoRawMode;
+use termion::{async_stdin, clear, cursor, style};
 
 mod board;
-pub mod evaluators;
-pub mod game;
-pub mod solver;
+mod evaluators;
+mod game;
+mod solver;
 mod utils;
 
-fn main() {
+fn init_logger() -> () {
     env_logger::Builder::from_default_env()
         .format_timestamp_nanos()
-        .init();
+        .init()
+}
 
-    let matches = App::new("2048")
+fn get_app<'a, 'b>() -> App<'a, 'b> {
+    App::new("2048")
         .about("The famous 2048 game")
         .setting(AppSettings::AllowLeadingHyphen)
         .arg(
@@ -64,18 +71,67 @@ fn main() {
                      the effective max search depth",
                 ),
         )
-        .get_matches();
+}
 
-    let mut solver = SolverBuilder::default()
-        .board_evaluator(PrecomputedEvaluator::new(InversionEvaluator {}))
-        .proba_4(f32::from_str(matches.value_of("proba_4").unwrap()).unwrap())
+fn get_solver(matches: &ArgMatches) -> Solver {
+    let penalty = f32::from_str(matches.value_of("gameover_penalty").unwrap()).unwrap();
+    let proba_4 = f32::from_str(matches.value_of("proba_4").unwrap()).unwrap();
+    SolverBuilder::default()
+        .board_evaluator(PrecomputedBoardEvaluator::new(
+            CombinedBoardEvaluator::default()
+                .add(MonotonicityEvaluator {
+                    gameover_penalty: penalty,
+                    monotonicity_power: 2,
+                })
+                .add(EmptyTileEvaluator {
+                    gameover_penalty: 0.,
+                    power: 2,
+                })
+                .add(AlignmentEvaluator {
+                    gameover_penalty: 0.,
+                    power: 2,
+                }),
+        ))
+        .proba_4(proba_4)
         .base_max_search_depth(usize::from_str(matches.value_of("depth").unwrap()).unwrap())
         .distinct_tiles_threshold(
             usize::from_str(matches.value_of("distinct_tiles_threshold").unwrap()).unwrap(),
         )
-        .gameover_penalty(f32::from_str(matches.value_of("gameover_penalty").unwrap()).unwrap())
         .min_branch_proba(f32::from_str(matches.value_of("min_branch_proba").unwrap()).unwrap())
-        .build();
+        .build()
+}
+
+fn update_board(board: Board, stdout: &mut StdoutLock) {
+    write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
+    write!(stdout, "{}\n\r", board).unwrap();
+    write!(stdout, "Keys:\n\r").unwrap();
+    write!(stdout, "'q' -> quit game\n\r").unwrap();
+    write!(stdout, "'p' -> use AI for next move\n\r").unwrap();
+    write!(stdout, "'a' -> toggle AI autoplay\n\r").unwrap();
+    write!(stdout, "{}", cursor::Hide).unwrap();
+    stdout.flush().unwrap();
+}
+
+fn play(game: &mut Game, direction: Direction, stdout: &mut StdoutLock) {
+    let previous_board = game.board;
+    game.play(direction);
+    if previous_board == game.board {
+        return;
+    }
+    update_board(game.board, stdout);
+    game.populate_new_tile();
+    update_board(game.board, stdout);
+}
+
+fn main() {
+    init_logger();
+    let matches = get_app().get_matches();
+    let mut solver = get_solver(&matches);
+    let proba_4 = f32::from_str(matches.value_of("proba_4").unwrap()).unwrap();
+
+    let stdout = stdout();
+    let mut stdout = stdout.lock().into_raw_mode().unwrap();
+    let mut stdin = async_stdin().keys();
 
     #[rustfmt::skip]
     let board: Board = Board::from(vec![
@@ -87,36 +143,58 @@ fn main() {
 
     let mut game = GameBuilder::default()
         .initial_board(board)
-        .proba_4(0.1)
+        .proba_4(proba_4)
         .build();
 
-    game = game.populate_new_tile();
-    let mut max_score = 0;
-    let mut moves_time = Duration::default();
-    let mut moves = 0;
+    update_board(game.board, &mut stdout);
+    game.populate_new_tile();
+    update_board(game.board, &mut stdout);
+    let mut autoplay = false;
 
+    let mut before = Instant::now();
     loop {
+        let interval = 10;
         let now = Instant::now();
-        let next_move = solver.next_best_move(game.board);
-        let elapsed = now.elapsed();
-        moves_time += elapsed;
-        moves += 1;
-        match next_move {
-            None => {
-                info!("Final board: {}", game.board);
-                break;
-            }
-            Some(best_move) => {
-                game = game.play(best_move);
-                let score = game.score();
-                if score > max_score {
-                    max_score = score;
-                    let avg_move_time = moves_time.as_millis() as f32 / moves as f32;
-                    info!("New max score --> {}", score);
-                    info!("Average time per move: {}ms", avg_move_time);
+        let dt = (now.duration_since(before).subsec_nanos() / 1_000_000) as u64;
+
+        if dt < interval {
+            sleep(Duration::from_millis(interval - dt));
+            continue;
+        }
+        before = now;
+
+        let input = stdin.next();
+        if let Some(Ok(key)) = input {
+            match key {
+                Key::Char('q') => break,
+                Key::Ctrl('c') => break,
+                Key::Left => play(&mut game, Direction::Left, &mut stdout),
+                Key::Right => play(&mut game, Direction::Right, &mut stdout),
+                Key::Up => play(&mut game, Direction::Up, &mut stdout),
+                Key::Down => play(&mut game, Direction::Down, &mut stdout),
+                Key::Char('p') => {
+                    solver
+                        .next_best_move(game.board)
+                        .map(|next_move| play(&mut game, next_move, &mut stdout));
                 }
-                game = game.populate_new_tile();
+                Key::Char('a') => autoplay = !autoplay,
+                _ => continue,
+            };
+        } else {
+            if autoplay {
+                solver
+                    .next_best_move(game.board)
+                    .map(|next_move| play(&mut game, next_move, &mut stdout));
             }
         }
     }
+
+    write!(
+        stdout,
+        "{}{}{}",
+        clear::All,
+        style::Reset,
+        cursor::Goto(1, 1)
+    )
+    .unwrap();
 }
