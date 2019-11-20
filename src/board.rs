@@ -298,51 +298,62 @@ impl From<Board> for Vec<u16> {
     }
 }
 
-impl Display for Board {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl Board {
+    fn display(&self, f: &mut Formatter<'_>, debug: bool) -> Result<(), std::fmt::Error> {
         let mut display = String::new();
-        display.push_str("\n\r+-------+-------+-------+-------+\n\r");
+        let line_break = if debug { "\n" } else { "\n\r" };
+        display.push_str(&*format!(
+            "{b}╔═══════╦═══════╦═══════╦═══════╗{b}",
+            b = line_break
+        ));
         for (i, tile) in Vec::from(*self).into_iter().enumerate() {
             if tile == 0 {
-                display.push_str("|       ");
+                display.push_str("║       ");
             } else {
-                display.push_str(&*format!(
-                    "|{prefix}{color}{tile}{reset} ",
-                    prefix = get_spaces_prefix(tile),
-                    color = get_color(tile),
-                    tile = tile,
-                    reset = color::Fg(color::Reset)
-                ));
+                if debug {
+                    display.push_str(&*format!(
+                        "║{prefix}{tile} ",
+                        prefix = get_spaces_prefix(tile),
+                        tile = tile,
+                    ));
+                } else {
+                    display.push_str(&*format!(
+                        "║{prefix}{color}{tile}{reset} ",
+                        prefix = get_spaces_prefix(tile),
+                        color = get_color(tile),
+                        tile = tile,
+                        reset = color::Fg(color::Reset)
+                    ));
+                }
             }
             if i % 4 == 3 {
-                display.push_str("|\n\r");
-                display.push_str("+-------+-------+-------+-------+\n\r");
+                display.push_str(&*format!("║{b}", b = line_break));
+                if i == 15 {
+                    display.push_str(&*format!(
+                        "╚═══════╩═══════╩═══════╩═══════╝{b}",
+                        b = line_break
+                    ));
+                } else {
+                    display.push_str(&*format!(
+                        "╠═══════╬═══════╬═══════╬═══════╣{b}",
+                        b = line_break
+                    ));
+                }
             }
         }
         write!(f, "{}", display)
     }
 }
 
+impl Display for Board {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        self.display(f, false)
+    }
+}
+
 impl Debug for Board {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let mut display = String::new();
-        display.push_str("\n+-------+-------+-------+-------+\n");
-        for (i, tile) in Vec::from(*self).into_iter().enumerate() {
-            if tile == 0 {
-                display.push_str("|       ");
-            } else {
-                display.push_str(&*format!(
-                    "|{prefix}{tile} ",
-                    prefix = get_spaces_prefix(tile),
-                    tile = tile,
-                ));
-            }
-            if i % 4 == 3 {
-                display.push_str("|\n");
-                display.push_str("+-------+-------+-------+-------+\n");
-            }
-        }
-        write!(f, "{}", display)
+        self.display(f, true)
     }
 }
 
@@ -758,15 +769,15 @@ mod tests {
 
         // Then
         let expected_display = r#"
-+-------+-------+-------+-------+
-|       |     2 |       | 32768 |
-+-------+-------+-------+-------+
-|       |   256 |       |   512 |
-+-------+-------+-------+-------+
-|       |       |  1024 |     4 |
-+-------+-------+-------+-------+
-|     8 |     2 |    16 |    64 |
-+-------+-------+-------+-------+
+╔═══════╦═══════╦═══════╦═══════╗
+║       ║     2 ║       ║ 32768 ║
+╠═══════╬═══════╬═══════╬═══════╣
+║       ║   256 ║       ║   512 ║
+╠═══════╬═══════╬═══════╬═══════╣
+║       ║       ║  1024 ║     4 ║
+╠═══════╬═══════╬═══════╬═══════╣
+║     8 ║     2 ║    16 ║    64 ║
+╚═══════╩═══════╩═══════╩═══════╝
 "#;
         assert_eq!(expected_display, display);
     }

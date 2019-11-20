@@ -18,6 +18,15 @@ mod game;
 mod solver;
 mod utils;
 
+mod graphics {
+    pub const CONTROLS: &'static str = "╓──────┬─────CONTROLS─────────╖\n\r\
+                                        ║ ↓→↑← | move tiles           ║\n\r\
+                                        ║   p  | use AI for next move ║\n\r\
+                                        ║   a  | toggle AI autoplay   ║\n\r\
+                                        ║   q  | quit                 ║\n\r\
+                                        ╚══════╧══════════════════════╝";
+}
+
 fn init_logger() -> () {
     env_logger::Builder::from_default_env()
         .format_timestamp_nanos()
@@ -102,14 +111,15 @@ fn get_solver(matches: &ArgMatches) -> Solver {
 }
 
 fn update_board(board: Board, stdout: &mut StdoutLock) {
-    write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
-    write!(stdout, "{}\n\r", board).unwrap();
-    write!(stdout, "Keys:\n\r").unwrap();
-    write!(stdout, "'q' -> quit game\n\r").unwrap();
-    write!(stdout, "'p' -> use AI for next move\n\r").unwrap();
-    write!(stdout, "'a' -> toggle AI autoplay\n\r").unwrap();
-    write!(stdout, "{}", cursor::Hide).unwrap();
-    stdout.flush().unwrap();
+    write!(
+        stdout,
+        "{}{}\n{}{}",
+        cursor::Goto(1, 5),
+        board,
+        graphics::CONTROLS,
+        cursor::Hide
+    )
+    .unwrap();
 }
 
 fn play(game: &mut Game, direction: Direction, stdout: &mut StdoutLock) {
@@ -132,6 +142,8 @@ fn main() {
     let stdout = stdout();
     let mut stdout = stdout.lock().into_raw_mode().unwrap();
     let mut stdin = async_stdin().keys();
+
+    write!(stdout, "{}{}", clear::All, cursor::Goto(1, 1)).unwrap();
 
     #[rustfmt::skip]
     let board: Board = Board::from(vec![
@@ -191,10 +203,11 @@ fn main() {
 
     write!(
         stdout,
-        "{}{}{}",
+        "{}{}{}{}",
         clear::All,
         style::Reset,
-        cursor::Goto(1, 1)
+        cursor::Goto(1, 1),
+        cursor::Show,
     )
     .unwrap();
 }
