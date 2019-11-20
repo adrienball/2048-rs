@@ -10,4 +10,4 @@ jobs:
       - uses: actions/checkout@v1
       - uses: icepuma/rust-action@master
         with:
-          args: cd cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test --all
+          args: cargo fmt -- --check && cargo clippy -- -Dwarnings && cargo test --all
