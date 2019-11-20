@@ -5,7 +5,7 @@ This is a Rust implementation of the famous [2048 game](https://en.wikipedia.org
 
 In addition to the standard user inputs, an AI can be used to perform the moves. This AI leverages the [expectiminimax](https://en.wikipedia.org/wiki/Expectiminimax) algorithm to recommend the best next move at each step.
 
-<img align="center" src="https://github.com/adrienball/2048-rs/blob/master/.img/screenshot.png?raw=true" alt="Screenshot"/>
+<img src="./.img/screenshot.png" width="100">
 
 ### Installation from source
 
