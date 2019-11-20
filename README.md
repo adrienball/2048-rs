@@ -1,4 +1,4 @@
-### 2048-rs
+# 2048-rs
 [![Travis Build Status](https://travis-ci.org/adrienball/2048-rs.svg?branch=master)](https://travis-ci.org/adrienball/2048-rs)
 
 This is a Rust implementation of the famous [2048 game](https://en.wikipedia.org/wiki/2048_\(video_game\)) the terminal.
