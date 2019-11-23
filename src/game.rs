@@ -2,6 +2,7 @@ use crate::board::{Board, Direction};
 use rand::prelude::ThreadRng;
 use rand::Rng;
 
+/// Main object containing the state of the game
 pub struct Game {
     pub board: Board,
     pub proba_4: f32,
@@ -9,10 +10,14 @@ pub struct Game {
 }
 
 impl Game {
+    /// Updates the game state my moving tiles with the provided direction
     pub fn play(&mut self, direction: Direction) {
         self.board = self.board.move_to(direction);
     }
 
+    /// Randomly generates a new tile in an empty square
+    /// The generated tile value follows a Bernoulli distribution with probability of 4 being
+    /// `self.proba_4` and probability of 2 being `1 - self.proba_4`
     pub fn populate_new_tile(&mut self) {
         let rnd_value: f32 = self.rng.gen();
         let populated_value = if rnd_value < self.proba_4 { 4 } else { 2 };

@@ -1,15 +1,15 @@
-## 2048-rs
+# 2048-rs
 [![Travis Build Status](https://travis-ci.org/adrienball/2048-rs.svg?branch=master)](https://travis-ci.org/adrienball/2048-rs)
 
 This is a Rust implementation of the famous [2048 game](https://en.wikipedia.org/wiki/2048_\(video_game\)) which runs in the terminal.
 
 In addition to the standard user inputs, an AI can be used to perform the moves. This AI leverages the [expectiminimax](https://en.wikipedia.org/wiki/Expectiminimax) algorithm to recommend the best next move at each step.
 
-<p align="center">
+<p align="left">
     <img src="./.img/screenshot.png?raw=true" alt="Game screenshot" width="230">
 </p>
 
-### Installation from source
+## Installation from source
 
 ```bash
 > git clone https://github.com/adrienball/2048-rs.git
@@ -28,3 +28,8 @@ To get the list of available options, simply run:
 ```bash
 > cargo run --release -- --help
 ```
+
+## License
+
+This binary is provided by Adrien Ball as Open Source software. See [LICENSE](LICENSE) for 
+more information.
