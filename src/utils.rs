@@ -110,36 +110,36 @@ mod tests {
     #[test]
     fn should_set_value_in_row() {
         // Given
-        let row = 0b0101000001011100;
+        let row = 0b0101_0000_0101_1100;
 
         // When
         let updated_row = set_value_in_row(row, 2, 8);
 
         // Then
-        assert_eq!(0b0101000010001100, updated_row);
+        assert_eq!(0b0101_0000_1000_1100, updated_row);
     }
 
     #[test]
     fn should_get_left_move() {
         // Given
-        let row = 0b0101000001011100;
+        let row = 0b0101_0000_0101_1100;
 
         // When
         let left_moved = get_left_move(row);
 
         // Then
-        assert_eq!(0b0110110000000000, left_moved);
+        assert_eq!(0b0110_1100_0000_0000, left_moved);
     }
 
     #[test]
     fn should_get_right_move() {
         // Given
-        let row = 0b0101000001011100;
+        let row = 0b0101_0000_0101_1100;
 
         // When
         let left_moved = get_right_move(row);
 
         // Then
-        assert_eq!(0b0000000001101100, left_moved);
+        assert_eq!(0b0000_0000_0110_1100, left_moved);
     }
 }
