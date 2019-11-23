@@ -1,13 +1,26 @@
 # 2048-rs
 [![Travis Build Status](https://travis-ci.org/adrienball/2048-rs.svg?branch=master)](https://travis-ci.org/adrienball/2048-rs)
 
-This is a Rust implementation of the famous [2048 game](https://en.wikipedia.org/wiki/2048_\(video_game\)) which runs in the terminal.
+This is a Rust implementation of the famous [2048 game](https://en.wikipedia.org/wiki/2048_\(video_game\)) 
+which runs in the terminal.
 
-In addition to the standard user inputs, an AI can be used to perform the moves. This AI leverages the [expectiminimax](https://en.wikipedia.org/wiki/Expectiminimax) algorithm to recommend the best next move at each step.
+In addition to the standard user inputs, an AI can be used to perform the moves. This AI 
+leverages the [expectiminimax](https://en.wikipedia.org/wiki/Expectiminimax) algorithm to 
+recommend the best next move at each step.
 
 <p align="left">
     <img src="./.img/screenshot.png?raw=true" alt="Game screenshot" width="230">
 </p>
+
+## Installation with Cargo
+```bash
+cargo install play-2048
+```
+
+Then, in order to play:
+```bash
+play-2048
+```
 
 ## Installation from source
 
@@ -17,7 +30,8 @@ In addition to the standard user inputs, an AI can be used to perform the moves.
 > cargo run --release
 ```
 
-Some parameters, like the probability of drawing a 4 tile, can be changed by passing additional parameters to the `cargo run` command:
+Some parameters, like the probability of drawing a 4 tile, can be changed by passing additional 
+parameters to the `cargo run` (or alternatively `play-2048`) command:
 
 ```bash
 > cargo run --release -- --proba-4 0.5
