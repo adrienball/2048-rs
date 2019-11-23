@@ -386,6 +386,7 @@ fn get_color(tile: u16) -> color::Fg<color::Rgb> {
         2048 => color::Fg(color::Rgb(237, 194, 46)),
         4096 => color::Fg(color::Rgb(129, 214, 154)),
         8192 => color::Fg(color::Rgb(129, 214, 154)),
+        16384 => color::Fg(color::Rgb(129, 214, 154)),
         32768 => color::Fg(color::Rgb(129, 214, 154)),
         _ => panic!("Invalid tile value: {}", tile),
     }
@@ -700,6 +701,31 @@ mod tests {
     }
 
     #[test]
+    fn should_move_with_high_values() {
+        // Given
+        #[rustfmt::skip]
+        let board = Board::from(vec![
+            0, 0, 0, 0,
+            0, 0, 16384, 0,
+            0, 0, 16384, 0,
+            0, 0, 0, 0,
+        ]);
+
+        // When
+        let down_board = board.into_down();
+
+        // Then
+        #[rustfmt::skip]
+        let expected_board = Board::from(vec![
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 0, 0,
+            0, 0, 32768, 0,
+        ]);
+        assert_eq!(expected_board, down_board);
+    }
+
+    #[test]
     fn should_get_max_value() {
         // Given
         #[rustfmt::skip]
@@ -753,13 +779,13 @@ mod tests {
     }
 
     #[test]
-    fn should_display_board() {
+    fn should_display_board_for_debug() {
         // Given
         #[rustfmt::skip]
         let vec_board = vec![
-            0, 2, 0, 32768,
-            0, 256, 0, 512,
-            0, 0, 1024, 4,
+            8192, 32, 16384, 32768,
+            4096, 256, 0, 512,
+            2048, 128, 1024, 4,
             8, 2, 16, 64
         ];
         let board = Board::from(vec_board);
@@ -770,15 +796,31 @@ mod tests {
         // Then
         let expected_display = r#"
 ╔═══════╦═══════╦═══════╦═══════╗
-║       ║     2 ║       ║ 32768 ║
+║  8192 ║    32 ║ 16384 ║ 32768 ║
 ╠═══════╬═══════╬═══════╬═══════╣
-║       ║   256 ║       ║   512 ║
+║  4096 ║   256 ║       ║   512 ║
 ╠═══════╬═══════╬═══════╬═══════╣
-║       ║       ║  1024 ║     4 ║
+║  2048 ║   128 ║  1024 ║     4 ║
 ╠═══════╬═══════╬═══════╬═══════╣
 ║     8 ║     2 ║    16 ║    64 ║
 ╚═══════╩═══════╩═══════╩═══════╝
 "#;
         assert_eq!(expected_display, display);
+    }
+
+    #[test]
+    fn should_display_board() {
+        // Given
+        #[rustfmt::skip]
+        let vec_board = vec![
+            8192, 32, 16384, 32768,
+            4096, 256, 0, 512,
+            2048, 128, 1024, 4,
+            8, 2, 16, 64
+        ];
+        let board = Board::from(vec_board);
+
+        // When / Then
+        format!("{}", board);
     }
 }
