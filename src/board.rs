@@ -109,9 +109,9 @@ impl Board {
     pub fn get_column(&self, col_idx: u8) -> u16 {
         let col_shift: u64 = 4 * (3 - col_idx as u64);
         let mut column = (self.state >> col_shift) & 0b1111;
-        column |= ((self.state >> (col_shift + 16)) << 4) & 0b11110000;
-        column |= ((self.state >> (col_shift + 32)) << 8) & 0b111100000000;
-        column |= ((self.state >> (col_shift + 48)) << 12) & 0b1111000000000000;
+        column |= ((self.state >> (col_shift + 16)) << 4) & 0b1111_0000;
+        column |= ((self.state >> (col_shift + 32)) << 8) & 0b1111_0000_0000;
+        column |= ((self.state >> (col_shift + 48)) << 12) & 0b1111_0000_0000_0000;
         column as u16
     }
 
@@ -186,9 +186,9 @@ impl Board {
             let col = self.get_column(col_idx);
             let up_col = LEFT_MOVES_TABLE[col as usize] as u64;
             let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0b1111000000000000) << 36 + col_shift;
-            state |= (up_col & 0b111100000000) << 24 + col_shift;
-            state |= (up_col & 0b11110000) << 12 + col_shift;
+            state |= (up_col & 0b1111_0000_0000_0000) << 36 + col_shift;
+            state |= (up_col & 0b1111_0000_0000) << 24 + col_shift;
+            state |= (up_col & 0b1111_0000) << 12 + col_shift;
             state |= (up_col & 0b1111) << col_shift;
         }
         Self { state }
@@ -200,9 +200,9 @@ impl Board {
             let col = self.get_column(col_idx);
             let up_col = RIGHT_MOVES_TABLE[col as usize] as u64;
             let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0b1111000000000000) << 36 + col_shift;
-            state |= (up_col & 0b111100000000) << 24 + col_shift;
-            state |= (up_col & 0b11110000) << 12 + col_shift;
+            state |= (up_col & 0b1111_0000_0000_0000) << 36 + col_shift;
+            state |= (up_col & 0b1111_0000_0000) << 24 + col_shift;
+            state |= (up_col & 0b1111_0000) << 12 + col_shift;
             state |= (up_col & 0b1111) << col_shift;
         }
         Self { state }
@@ -530,7 +530,7 @@ mod tests {
         ]);
 
         // When / Then
-        assert_eq!(0b0010000100001001, board.get_row(2));
+        assert_eq!(0b0010_0001_0000_1001, board.get_row(2));
     }
 
     #[test]
@@ -545,7 +545,7 @@ mod tests {
         ]);
 
         // When / Then
-        assert_eq!(0b0000100100010101, board.get_column(2));
+        assert_eq!(0b0000_1001_0001_0101, board.get_column(2));
     }
 
     #[test]
