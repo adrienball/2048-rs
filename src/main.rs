@@ -19,12 +19,12 @@ mod solver;
 mod utils;
 
 mod graphics {
-    pub const CONTROLS: &'static str = "╓──────┬─────CONTROLS─────────╖\n\r\
-                                        ║ ↓→↑← | move tiles           ║\n\r\
-                                        ║   p  | use AI for next move ║\n\r\
-                                        ║   a  | toggle AI autoplay   ║\n\r\
-                                        ║   q  | quit                 ║\n\r\
-                                        ╚══════╧══════════════════════╝";
+    pub const CONTROLS: &'static str = "╓─────────┬─────CONTROLS─────────╖\n\r\
+                                        ║ ← ↑ → ↓ | move tiles           ║\n\r\
+                                        ║      p  | use AI for next move ║\n\r\
+                                        ║      a  | toggle AI autoplay   ║\n\r\
+                                        ║      q  | quit                 ║\n\r\
+                                        ╚═════════╧══════════════════════╝";
 }
 
 fn init_logger() -> () {

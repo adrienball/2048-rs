@@ -1,8 +1,18 @@
 [package]
-name = "game-2048"
+name = "play-2048"
 version = "0.1.0"
 authors = ["Adrien Ball <adrienball3@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Rust implementation of the famous 2048 game in the terminal"
+readme = "README.md"
+homepage = "https://github.com/adrienball/2048-rs"
+repository = "https://github.com/adrienball/2048-rs"
+keywords = ["game", "2048", "puzzle"]
+categories = ["games", "command-line-utilities"]
 edition = "2018"
+
+[badges]
+travis-ci = { repository = "adrienball/2048-rs", branch = "master" }
 
 [dependencies]
 rand = "0.7.2"
