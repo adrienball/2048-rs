@@ -5,6 +5,7 @@ use std::cmp::max;
 
 pub struct Solver {
     board_evaluator: Box<dyn BoardEvaluator>,
+    proba_2: f32,
     proba_4: f32,
     base_max_search_depth: usize,
     min_branch_proba: f32,
@@ -75,6 +76,7 @@ impl SolverBuilder {
     pub fn build(self) -> Solver {
         Solver {
             board_evaluator: self.board_evaluator,
+            proba_2: 1. - self.proba_4,
             proba_4: self.proba_4,
             base_max_search_depth: self.base_max_search_depth,
             min_branch_proba: self.min_branch_proba,
@@ -127,17 +129,22 @@ impl Solver {
         } else {
             let empty_tiles_indices = board.empty_tiles_indices();
             let nb_empty_tiles = empty_tiles_indices.len();
+            let proba_2 = self.proba_2;
             let proba_4 = self.proba_4;
             let scores_sum: f32 = empty_tiles_indices
                 .into_iter()
-                .flat_map(|idx| vec![(idx, 1, 1. - proba_4), (idx, 2, proba_4)].into_iter())
-                .map(|(idx, draw, proba)| {
-                    let board_with_draw = board.set_value_by_exponent(idx, draw);
-                    let max_score = self
-                        .eval_max(board_with_draw, remaining_depth - 1, branch_proba * proba)
+                .map(|idx| {
+                    let board_with_2 = board.set_value_by_exponent(idx, 1);
+                    let board_with_4 = board.set_value_by_exponent(idx, 2);
+                    let max_score_2 = self
+                        .eval_max(board_with_2, remaining_depth - 1, branch_proba * proba_2)
                         .map(|(_, score)| score)
                         .unwrap_or(self.board_evaluator.gameover_penalty());
-                    max_score * proba
+                    let max_score_4 = self
+                        .eval_max(board_with_4, remaining_depth - 1, branch_proba * proba_4)
+                        .map(|(_, score)| score)
+                        .unwrap_or(self.board_evaluator.gameover_penalty());
+                    max_score_2 * proba_2 + max_score_4 * proba_4
                 })
                 .sum();
             scores_sum / nb_empty_tiles as f32

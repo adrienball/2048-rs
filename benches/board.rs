@@ -39,9 +39,7 @@ fn move_up(c: &mut Criterion) {
         0, 8, 8, 0,
         8, 8, 0, 0,
     ]);
-    c.bench_function("Move up", move |b| {
-        b.iter(|| board.move_to(Direction::Up))
-    });
+    c.bench_function("Move up", move |b| b.iter(|| board.move_to(Direction::Up)));
 }
 
 fn move_down(c: &mut Criterion) {
@@ -57,5 +55,27 @@ fn move_down(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, move_left, move_right, move_up, move_down);
+fn get_row(c: &mut Criterion) {
+    #[rustfmt::skip]
+    let board = Board::from(vec![
+        8, 8, 0, 8,
+        8, 0, 8, 8,
+        0, 8, 8, 0,
+        8, 8, 0, 0,
+    ]);
+    c.bench_function("Get row", move |b| b.iter(|| board.get_row(2)));
+}
+
+fn get_column(c: &mut Criterion) {
+    #[rustfmt::skip]
+    let board = Board::from(vec![
+        8, 8, 0, 8,
+        8, 0, 8, 8,
+        0, 8, 8, 0,
+        8, 8, 0, 0,
+    ]);
+    c.bench_function("Get column", move |b| b.iter(|| board.get_column(2)));
+}
+
+criterion_group!(benches, move_left, move_right, move_up, move_down, get_row, get_column);
 criterion_main!(benches);

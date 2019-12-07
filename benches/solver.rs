@@ -25,7 +25,7 @@ fn next_best_move(c: &mut Criterion) {
                 }),
         ))
         .proba_4(0.1)
-        .base_max_search_depth(3)
+        .base_max_search_depth(4)
         .distinct_tiles_threshold(5)
         .min_branch_proba(0.0001)
         .build();

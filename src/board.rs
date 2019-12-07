@@ -92,9 +92,9 @@ impl Board {
     pub fn get_column(&self, col_idx: u8) -> u16 {
         let col_shift: u64 = 4 * (3 - col_idx as u64);
         let mut column = (self.state >> col_shift) & 0b1111;
-        column |= ((self.state >> (col_shift + 16)) << 4) & 0b1111_0000;
-        column |= ((self.state >> (col_shift + 32)) << 8) & 0b1111_0000_0000;
-        column |= ((self.state >> (col_shift + 48)) << 12) & 0b1111_0000_0000_0000;
+        column |= (self.state >> (col_shift + 12)) & 0b1111_0000;
+        column |= (self.state >> (col_shift + 24)) & 0b1111_0000_0000;
+        column |= (self.state >> (col_shift + 36)) & 0b1111_0000_0000_0000;
         column as u16
     }
 
