@@ -64,41 +64,21 @@ fn get_left_move(row: u16) -> u16 {
 }
 
 fn get_right_move(row: u16) -> u16 {
-    let mut result = row;
-    let mut value_idx = 3;
-    let mut prev_value = std::u8::MAX;
-    let mut new_value_idx = value_idx;
-    // whether or not cells have been moved in this row
-    let mut moved = false;
-    for i in (0..4).rev() {
-        let value: u8 = ((row & (0b1111 << 4 * (3 - i))) >> 4 * (3 - i)) as u8;
-        if value == 0 {
-            moved = true;
-        } else if value == prev_value {
-            result = set_value_in_row(result, new_value_idx + 1, value + 1);
-            result = set_value_in_row(result, value_idx, 0);
-            prev_value = std::u8::MAX;
-            moved = true;
-        } else {
-            if moved {
-                result = set_value_in_row(result, new_value_idx, value);
-                result = set_value_in_row(result, value_idx, 0);
-            }
-            prev_value = value;
-            if new_value_idx > 0 {
-                new_value_idx -= 1;
-            }
-        }
-        if value_idx > 0 {
-            value_idx -= 1;
-        }
+    invert_row(get_left_move(invert_row(row)))
+}
+
+fn invert_row(row: u16) -> u16 {
+    let mut inverted_row: u16 = 0;
+    for i in 0..4 {
+        let value = (row >> 4 * i) & 0b1111;
+        inverted_row = set_value_in_row(inverted_row, i as u8, value as u8);
     }
-    result
+    inverted_row
 }
 
 fn set_value_in_row(row: u16, idx: u8, value: u8) -> u16 {
     // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
-    let clear_mask: u16 = !(0b1111u16 << (4 * (3 - idx) as u16));
+    let clear_mask: u16 = !(0b1111 << (4 * (3 - idx) as u16));
     let update_mask: u16 = (value as u16) << (4 * (3 - idx) as u16);
     (row & clear_mask) | update_mask
 }
@@ -141,5 +121,17 @@ mod tests {
 
         // Then
         assert_eq!(0b0000_0000_0110_1100, left_moved);
+    }
+
+    #[test]
+    fn should_invert_row() {
+        // Given
+        let row = 0b0101_0000_0101_1100;
+
+        // When
+        let inverted_row = invert_row(row);
+
+        // Then
+        assert_eq!(0b1100_0101_0000_0101, inverted_row);
     }
 }
