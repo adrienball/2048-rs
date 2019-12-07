@@ -22,3 +22,14 @@ env_logger = "0.7.1"
 clap = "2.33.0"
 log = "0.4.8"
 termion = "1.5.3"
+
+[dev-dependencies]
+criterion = "0.3.0"
+
+[[bench]]
+name = "solver"
+harness = false
+
+[[bench]]
+name = "board"
+harness = false

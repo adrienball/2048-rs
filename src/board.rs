@@ -16,23 +16,6 @@ use termion::color;
 /// representation. However, an important detail is that the specific value `1` is not part of
 /// the game, its representation would have been `"0000"`. This value is thus the one we use to
 /// represent `0`.
-///
-/// # Examples
-///
-/// ```
-/// use crate::Board;
-///
-/// let board_values: Vec<u16> = vec![
-///     0, 0, 0, 0,
-///     0, 0, 0, 0,
-///     0, 0, 4, 0,
-///     0, 16, 0, 8,
-/// ];
-///
-/// let board = Board::try_from(board_values).unwrap();
-/// let board_repr: u64 = 2u64.pow(0 + 0) + 2u64.pow(1 + 0) + 2u64.pow(2 + 8) + 2u64.pow(1 + 20);
-/// assert_eq!(board_repr, board.state);
-/// ```
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Board {
     state: u64,
