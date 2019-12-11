@@ -143,7 +143,7 @@ impl Default for EmptyTileEvaluator {
     fn default() -> Self {
         Self {
             gameover_penalty: 0.0,
-            power: 2,
+            power: 1,
         }
     }
 }

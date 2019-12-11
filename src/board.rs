@@ -105,14 +105,16 @@ impl Board {
     }
 
     /// Returns the indices of empty tiles
-    pub fn empty_tiles_indices(self) -> Vec<u8> {
-        let mut indices = Vec::<u8>::with_capacity(16);
-        for (i, tile) in self.into_iter().enumerate() {
-            if tile == 0 {
-                indices.push(i as u8)
-            }
-        }
-        indices
+    pub fn empty_tiles_indices(self) -> impl Iterator<Item = u8> {
+        self.into_empty_tiles_iter()
+    }
+
+    /// Returns the number of empty tiles
+    pub fn count_empty_tiles(self) -> usize {
+        self.empty_tiles_indices().fold(0, |mut acc, _| {
+            acc += 1;
+            acc
+        })
     }
 
     /// Returns the number of distinct tiles, excluding empty tiles
@@ -224,30 +226,38 @@ impl Iterator for BoardIntoIterator {
 }
 
 impl Board {
-    pub fn into_reversed_iter(self) -> BoardIntoReversedIterator {
-        BoardIntoReversedIterator {
+    pub fn into_empty_tiles_iter(self) -> EmptyTilesIterator {
+        EmptyTilesIterator {
             state: self.state,
             index: 0,
         }
     }
 }
 
-pub struct BoardIntoReversedIterator {
+pub struct EmptyTilesIterator {
     state: u64,
     index: u8,
 }
 
-impl Iterator for BoardIntoReversedIterator {
+impl Iterator for EmptyTilesIterator {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.index {
-            16 => None,
-            _ => {
-                let exponent = self.state & 0xf;
-                self.state >>= 4;
-                self.index += 1;
-                Some(exponent as u8)
+        loop {
+            match self.index {
+                16 => return None,
+                _ => {
+                    let empty_tile_index = if self.state.leading_zeros() >= 4 {
+                        Some(self.index)
+                    } else {
+                        None
+                    };
+                    self.state <<= 4;
+                    self.index += 1;
+                    if empty_tile_index.is_some() {
+                        return empty_tile_index;
+                    }
+                }
             }
         }
     }
@@ -417,33 +427,6 @@ mod tests {
             0, 0, 4, 2,
             3, 1, 4, 6
         ];
-        assert_eq!(expected_exponents, exponents);
-    }
-
-    #[test]
-    fn should_reverse_iterate_over_exponents() {
-        // Given
-        #[rustfmt::skip]
-        let vec_board: Vec<u16> = vec![
-            0, 2, 0, 0,
-            32768, 0, 0, 2,
-            0, 0, 16, 4,
-            8, 2, 16, 64
-        ];
-        let board = Board::from(vec_board.clone());
-
-        // When
-        let exponents: Vec<_> = board.into_reversed_iter().collect();
-
-        // Then
-        #[rustfmt::skip]
-         let mut expected_exponents = vec![
-            0, 1, 0, 0,
-            15, 0, 0, 1,
-            0, 0, 4, 2,
-            3, 1, 4, 6
-        ];
-        expected_exponents.reverse();
         assert_eq!(expected_exponents, exponents);
     }
 
@@ -736,8 +719,25 @@ mod tests {
         let board = Board::from(vec_board);
 
         // When
-        let empty_tiles = board.empty_tiles_indices();
+        let empty_tiles: Vec<_> = board.empty_tiles_indices().collect();
         assert_eq!(vec![0, 2, 4, 6, 8, 9], empty_tiles);
+    }
+
+    #[test]
+    fn should_count_empty_tiles() {
+        // Given
+        #[rustfmt::skip]
+            let vec_board = vec![
+            0, 2, 0, 2048,
+            0, 256, 0, 512,
+            0, 0, 1024, 4,
+            8, 2, 16, 64
+        ];
+        let board = Board::from(vec_board);
+
+        // When
+        let nb_empty_tiles = board.count_empty_tiles();
+        assert_eq!(6, nb_empty_tiles);
     }
 
     #[test]

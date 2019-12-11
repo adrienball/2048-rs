@@ -120,44 +120,44 @@ impl Solver {
     }
 
     fn eval_average(&mut self, board: Board, remaining_depth: usize, branch_proba: f32) -> f32 {
+        if remaining_depth == 0 || branch_proba < self.min_branch_proba {
+            return self.board_evaluator.evaluate(board);
+        }
+
         if let Some((cached_value, cached_proba)) = self.transposition_table.get(&board) {
             if *cached_proba >= branch_proba {
                 return *cached_value;
             }
         }
-        let average = if remaining_depth == 0 || branch_proba < self.min_branch_proba {
-            self.board_evaluator.evaluate(board)
-        } else {
-            let empty_tiles_indices = board.empty_tiles_indices();
-            let nb_empty_tiles = empty_tiles_indices.len() as f32;
-            let proba_2 = self.proba_2;
-            let proba_4 = self.proba_4;
-            let scores_sum: f32 = empty_tiles_indices
-                .into_iter()
-                .map(|idx| {
-                    let board_with_2 = board.set_value_by_exponent(idx, 1);
-                    let board_with_4 = board.set_value_by_exponent(idx, 2);
-                    let max_score_2 = self
-                        .eval_max(
-                            board_with_2,
-                            remaining_depth - 1,
-                            branch_proba * proba_2 / nb_empty_tiles,
-                        )
-                        .map(|(_, score)| score)
-                        .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
-                    let max_score_4 = self
-                        .eval_max(
-                            board_with_4,
-                            remaining_depth - 1,
-                            branch_proba * proba_4 / nb_empty_tiles,
-                        )
-                        .map(|(_, score)| score)
-                        .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
-                    max_score_2 * proba_2 + max_score_4 * proba_4
-                })
-                .sum();
-            scores_sum / nb_empty_tiles as f32
-        };
+
+        let empty_tiles_indices = board.empty_tiles_indices();
+        let nb_empty_tiles = board.count_empty_tiles() as f32;
+        let proba_2 = self.proba_2;
+        let proba_4 = self.proba_4;
+        let scores_sum: f32 = empty_tiles_indices
+            .map(|idx| {
+                let board_with_2 = board.set_value_by_exponent(idx, 1);
+                let board_with_4 = board.set_value_by_exponent(idx, 2);
+                let max_score_2 = self
+                    .eval_max(
+                        board_with_2,
+                        remaining_depth - 1,
+                        branch_proba * proba_2 / nb_empty_tiles,
+                    )
+                    .map(|(_, score)| score)
+                    .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
+                let max_score_4 = self
+                    .eval_max(
+                        board_with_4,
+                        remaining_depth - 1,
+                        branch_proba * proba_4 / nb_empty_tiles,
+                    )
+                    .map(|(_, score)| score)
+                    .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
+                max_score_2 * proba_2 + max_score_4 * proba_4
+            })
+            .sum();
+        let average = scores_sum / nb_empty_tiles as f32;
         self.transposition_table
             .insert(board, (average, branch_proba));
         average
