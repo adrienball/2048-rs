@@ -39,7 +39,7 @@ fn get_left_move(row: u16) -> u16 {
     // whether or not tiles have been moved in this row
     let mut moved = false;
     for i in 0..4 {
-        let value: u8 = ((row & (0b1111 << (4 * (3 - i)))) >> (4 * (3 - i))) as u8;
+        let value: u8 = ((row & (0xF << (4 * (3 - i)))) >> (4 * (3 - i))) as u8;
         if value == 0 {
             moved = true;
         } else if value == prev_value {
@@ -66,7 +66,7 @@ fn get_right_move(row: u16) -> u16 {
 fn invert_row(row: u16) -> u16 {
     let mut inverted_row: u16 = 0;
     for i in 0..4 {
-        let value = (row >> (4 * i)) & 0b1111;
+        let value = (row >> (4 * i)) & 0xF;
         inverted_row = set_value_in_row(inverted_row, i as u8, value as u8);
     }
     inverted_row
@@ -74,7 +74,7 @@ fn invert_row(row: u16) -> u16 {
 
 fn set_value_in_row(row: u16, idx: u8, value: u8) -> u16 {
     // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
-    let clear_mask: u16 = !(0b1111 << (4 * (3 - idx) as u16));
+    let clear_mask: u16 = !(0xF << (4 * (3 - idx) as u16));
     let update_mask: u16 = (value as u16) << (4 * (3 - idx) as u16);
     (row & clear_mask) | update_mask
 }

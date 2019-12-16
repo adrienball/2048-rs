@@ -61,7 +61,7 @@ impl Board {
     /// For example, if `get_value(3)` returns `512`, then `get_exponent_value(3)` will return `9`
     /// because 512 = 2^9
     pub fn get_exponent_value(self, tile_idx: u8) -> u8 {
-        ((self.state >> (4 * (15 - tile_idx as u64))) & 0xf) as u8
+        ((self.state >> (4 * (15 - tile_idx as u64))) & 0xF) as u8
     }
 
     /// Sets the value `tile_value` at the index `tile_idx`
@@ -76,26 +76,24 @@ impl Board {
     pub fn set_value_by_exponent(self, tile_idx: u8, value_exponent: u64) -> Self {
         let bits_shift = ((15 - tile_idx) * 4) as u64;
         // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
-        let clear_mask = !(0xf << bits_shift);
+        let clear_mask = !(0xF << bits_shift);
         let update_mask = value_exponent << bits_shift;
         let new_state = (self.state & clear_mask) | update_mask;
         Board { state: new_state }
     }
 
-    /// Returns the 16 bits of the the specified row
-    pub fn get_row(self, row_idx: u8) -> u16 {
-        let bit_shift = ((3 - row_idx) * 16) as u64;
-        ((self.state & (0xbffff_u64 << bit_shift)) >> bit_shift) as u16
+    /// Returns the rows
+    pub fn rows(self) -> [u16; 4] {
+        let row1 = ((self.state & 0xFFFF_0000_0000_0000) >> 48) as u16;
+        let row2 = ((self.state & 0x0000_FFFF_0000_0000) >> 32) as u16;
+        let row3 = ((self.state & 0x0000_0000_FFFF_0000) >> 16) as u16;
+        let row4 = (self.state & 0x0000_0000_0000_FFFF) as u16;
+        [row1, row2, row3, row4]
     }
 
-    /// Returns the 16 bits of the the specified column
-    pub fn get_column(self, col_idx: u8) -> u16 {
-        let col_shift: u64 = 4 * (3 - col_idx as u64);
-        let mut column = (self.state >> col_shift) & 0xf;
-        column |= (self.state >> (col_shift + 12)) & 0xf0;
-        column |= (self.state >> (col_shift + 24)) & 0xf00;
-        column |= (self.state >> (col_shift + 36)) & 0xf000;
-        column as u16
+    /// Returns the columns
+    pub fn columns(self) -> [u16; 4] {
+        self.transpose().rows()
     }
 
     /// Returns the maximum value of the board
@@ -145,50 +143,71 @@ impl Board {
         }
     }
 
+    fn transpose(self) -> Self {
+        // Credit to nneonneo for this fast tranpose implementation
+        // https://github.com/nneonneo/2048-ai/blob/master/2048.cpp
+        let x = self.state;
+        let a1 = x & 0xF0F0_0F0F_F0F0_0F0F;
+        let a2 = x & 0x0000_F0F0_0000_F0F0;
+        let a3 = x & 0x0F0F_0000_0F0F_0000;
+        let a = a1 | (a2 << 12) | (a3 >> 12);
+        let b1 = a & 0xFF00_FF00_00FF_00FF;
+        let b2 = a & 0x00FF_00FF_0000_0000;
+        let b3 = a & 0x0000_0000_FF00_FF00;
+        let ret = b1 | (b2 >> 24) | (b3 << 24);
+        Self { state: ret }
+    }
+
     fn into_left(self) -> Self {
-        let mut state: u64 = 0;
-        for row_idx in 0..4 {
-            let row = self.get_row(row_idx);
-            state |= (LEFT_MOVES_TABLE[row as usize] as u64) << (16 * (3 - row_idx) as u64);
-        }
-        Self { state }
+        self.rows()
+            .iter()
+            .enumerate()
+            .fold(Board::default(), |mut acc, (row_idx, row)| {
+                acc.state |=
+                    (LEFT_MOVES_TABLE[*row as usize] as u64) << (16 * (3 - row_idx) as u64);
+                acc
+            })
     }
 
     fn into_right(self) -> Self {
-        let mut state: u64 = 0;
-        for row_idx in 0..4 {
-            let row = self.get_row(row_idx);
-            state |= (RIGHT_MOVES_TABLE[row as usize] as u64) << (16 * (3 - row_idx) as u64);
-        }
-        Self { state }
+        self.rows()
+            .iter()
+            .enumerate()
+            .fold(Board::default(), |mut acc, (row_idx, row)| {
+                acc.state |=
+                    (RIGHT_MOVES_TABLE[*row as usize] as u64) << (16 * (3 - row_idx) as u64);
+                acc
+            })
     }
 
     fn into_up(self) -> Self {
-        let mut state = 0;
-        for col_idx in 0..4 {
-            let col = self.get_column(col_idx);
-            let up_col = LEFT_MOVES_TABLE[col as usize] as u64;
-            let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0xf000) << (36 + col_shift);
-            state |= (up_col & 0xf00) << (24 + col_shift);
-            state |= (up_col & 0xf0) << (12 + col_shift);
-            state |= (up_col & 0xf) << col_shift;
-        }
-        Self { state }
+        self.transpose().rows().iter().enumerate().fold(
+            Board::default(),
+            |mut acc, (col_idx, col)| {
+                let up_col = LEFT_MOVES_TABLE[*col as usize] as u64;
+                let col_shift = 4 * (3 - col_idx) as u64;
+                acc.state |= (up_col & 0xF000) << (36 + col_shift);
+                acc.state |= (up_col & 0xF00) << (24 + col_shift);
+                acc.state |= (up_col & 0xF0) << (12 + col_shift);
+                acc.state |= (up_col & 0xF) << col_shift;
+                acc
+            },
+        )
     }
 
     fn into_down(self) -> Self {
-        let mut state = 0;
-        for col_idx in 0..4 {
-            let col = self.get_column(col_idx);
-            let up_col = RIGHT_MOVES_TABLE[col as usize] as u64;
-            let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0xf000) << (36 + col_shift);
-            state |= (up_col & 0xf00) << (24 + col_shift);
-            state |= (up_col & 0xf0) << (12 + col_shift);
-            state |= (up_col & 0xf) << col_shift;
-        }
-        Self { state }
+        self.transpose().rows().iter().enumerate().fold(
+            Board::default(),
+            |mut acc, (col_idx, col)| {
+                let up_col = RIGHT_MOVES_TABLE[*col as usize] as u64;
+                let col_shift = 4 * (3 - col_idx) as u64;
+                acc.state |= (up_col & 0xF000) << (36 + col_shift);
+                acc.state |= (up_col & 0xF00) << (24 + col_shift);
+                acc.state |= (up_col & 0xF0) << (12 + col_shift);
+                acc.state |= (up_col & 0xF) << col_shift;
+                acc
+            },
+        )
     }
 }
 
@@ -481,7 +500,7 @@ mod tests {
     }
 
     #[test]
-    fn should_get_row() {
+    fn should_get_rows() {
         // Given
         #[rustfmt::skip]
         let board = Board::from(vec![
@@ -491,23 +510,31 @@ mod tests {
             16, 8, 32, 32,
         ]);
 
-        // When / Then
-        assert_eq!(0b0010_0001_0000_1001, board.get_row(2));
+        // When
+        let rows = board.rows();
+
+        // Then
+        let expected_rows: [u16; 4] = [0x0201, 0x1020, 0x2109, 0x4355];
+        assert_eq!(expected_rows, rows);
     }
 
     #[test]
-    fn should_get_column() {
+    fn should_get_columns() {
         // Given
         #[rustfmt::skip]
-            let board = Board::from(vec![
-            0, 4, 0, 2,
-            2, 0, 512, 0,
-            4, 2, 2, 512,
-            16, 8, 32, 32,
+        let board = Board::from(vec![
+            0, 2, 4, 16,
+            4, 0, 2, 8,
+            0, 4, 0, 32,
+            2, 0, 512, 32,
         ]);
 
-        // When / Then
-        assert_eq!(0b0000_1001_0001_0101, board.get_column(2));
+        // When
+        let columns = board.columns();
+
+        // Then
+        let expected_rows: [u16; 4] = [0x0201, 0x1020, 0x2109, 0x4355];
+        assert_eq!(expected_rows, columns);
     }
 
     #[test]

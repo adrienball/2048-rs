@@ -42,8 +42,11 @@ where
     T: RowColumnEvaluator,
 {
     fn evaluate(&self, board: Board) -> f32 {
-        (0..4)
-            .map(|i| self.evaluate_row(board.get_row(i)) + self.evaluate_row(board.get_column(i)))
+        board
+            .rows()
+            .iter()
+            .chain(board.columns().iter())
+            .map(|row| self.evaluate_row(*row))
             .sum()
     }
 
@@ -119,11 +122,11 @@ impl RowColumnEvaluator for CombinedBoardEvaluator {
 
 impl BoardEvaluator for PrecomputedBoardEvaluator {
     fn evaluate(&self, board: Board) -> f32 {
-        (0..4)
-            .map(|i| {
-                self.row_cache[board.get_row(i) as usize]
-                    + self.row_cache[board.get_column(i) as usize]
-            })
+        board
+            .rows()
+            .iter()
+            .chain(board.columns().iter())
+            .map(|row| self.row_cache[*row as usize])
             .sum()
     }
 
@@ -297,7 +300,7 @@ mod tests {
         };
 
         // When
-        assert_eq!(4., evaluator.evaluate_row(board.get_row(1)));
+        assert_eq!(4., evaluator.evaluate_row(board.rows()[1]));
     }
 
     #[test]
@@ -317,9 +320,10 @@ mod tests {
         };
 
         // When / Then
-        assert_eq!(0., evaluator.evaluate_row(board.get_row(0)));
-        assert_eq!(4., evaluator.evaluate_row(board.get_row(1)));
-        assert_eq!(0., evaluator.evaluate_row(board.get_row(2)));
+        let rows = board.rows();
+        assert_eq!(0., evaluator.evaluate_row(rows[0]));
+        assert_eq!(4., evaluator.evaluate_row(rows[1]));
+        assert_eq!(0., evaluator.evaluate_row(rows[2]));
     }
 
     #[test]
@@ -339,9 +343,10 @@ mod tests {
         };
 
         // When
-        let row_inversions_1 = evaluator.evaluate_row(board.get_row(1));
-        let row_inversions_2 = evaluator.evaluate_row(board.get_row(2));
-        let col_inversions = evaluator.evaluate_row(board.get_column(1));
+        let rows = board.rows();
+        let row_inversions_1 = evaluator.evaluate_row(rows[1]);
+        let row_inversions_2 = evaluator.evaluate_row(rows[2]);
+        let col_inversions = evaluator.evaluate_row(board.columns()[1]);
 
         // Then
         assert_eq!(-64., row_inversions_1);
@@ -397,8 +402,9 @@ mod tests {
             );
 
         // When
-        let evaluation_1 = evaluator.evaluate_row(board.get_row(1));
-        let evaluation_2 = evaluator.evaluate_row(board.get_row(2));
+        let rows = board.rows();
+        let evaluation_1 = evaluator.evaluate_row(rows[1]);
+        let evaluation_2 = evaluator.evaluate_row(rows[2]);
 
         // Then
         assert_eq!(-9. + 2. * 4., evaluation_1);
