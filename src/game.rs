@@ -23,7 +23,7 @@ impl Game {
         let populated_value = if rnd_value < self.proba_4 { 4 } else { 2 };
         let empty_tiles = self.board.empty_tiles_indices();
         let mut rnd_idx: usize = self.rng.gen();
-        rnd_idx = rnd_idx % empty_tiles.len();
+        rnd_idx %= empty_tiles.len();
         self.board = self.board.set_value(empty_tiles[rnd_idx], populated_value);
     }
 }

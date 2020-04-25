@@ -1,5 +1,5 @@
 use crate::board::Board;
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 
 /// Evaluate a `Board` by mapping it to a number. The higher the number, the better the board
 /// state.
@@ -20,7 +20,6 @@ where
 {
     fn evaluate(&self, board: Board) -> f32 {
         (0..4)
-            .into_iter()
             .map(|i| self.evaluate_row(board.get_row(i)) + self.evaluate_row(board.get_column(i)))
             .sum()
     }
@@ -44,7 +43,6 @@ impl PrecomputedBoardEvaluator {
         T: RowColumnEvaluator,
     {
         let row_cache = (0..(std::u16::MAX as usize + 1))
-            .into_iter()
             .map(|row| evaluator.evaluate_row(row as u16))
             .collect();
         Self {
@@ -62,7 +60,7 @@ pub struct CombinedBoardEvaluator {
 }
 
 impl CombinedBoardEvaluator {
-    pub fn add<T>(mut self, evaluator: T) -> Self
+    pub fn combine<T>(mut self, evaluator: T) -> Self
     where
         T: RowColumnEvaluator + 'static,
     {
@@ -90,7 +88,6 @@ impl RowColumnEvaluator for CombinedBoardEvaluator {
 impl BoardEvaluator for PrecomputedBoardEvaluator {
     fn evaluate(&self, board: Board) -> f32 {
         (0..4)
-            .into_iter()
             .map(|i| {
                 self.row_cache[board.get_row(i) as usize]
                     + self.row_cache[board.get_column(i) as usize]
@@ -124,7 +121,7 @@ impl RowColumnEvaluator for EmptyTileEvaluator {
         let mut nb_empty: u32 = 0;
         let mut row = row;
         for _ in 0..4 {
-            if (row & 0b1111) == 0 {
+            if row.trailing_zeros() >= 4 {
                 nb_empty += 1;
             }
             row >>= 4;
@@ -198,13 +195,17 @@ impl RowColumnEvaluator for MonotonicityEvaluator {
         let mut left_right_inversions = 0;
         let mut right_left_inversions = 0;
         for col in 1..4 {
-            let v = (row >> 4 * (3 - col)) & 0b1111;
-            if v < left_value {
-                left_right_inversions +=
-                    left_value.pow(self.monotonicity_power) - v.pow(self.monotonicity_power);
-            } else if v > left_value {
-                right_left_inversions +=
-                    v.pow(self.monotonicity_power) - left_value.pow(self.monotonicity_power);
+            let v = (row >> (4 * (3 - col))) & 0b1111;
+            match v.cmp(&left_value) {
+                Ordering::Less => {
+                    left_right_inversions +=
+                        left_value.pow(self.monotonicity_power) - v.pow(self.monotonicity_power);
+                }
+                Ordering::Greater => {
+                    right_left_inversions +=
+                        v.pow(self.monotonicity_power) - left_value.pow(self.monotonicity_power);
+                }
+                Ordering::Equal => {}
             }
             left_value = v;
         }
@@ -321,11 +322,11 @@ mod tests {
         ];
         let board = Board::from(vec_board);
         let evaluator = CombinedBoardEvaluator::default()
-            .add(EmptyTileEvaluator {
+            .combine(EmptyTileEvaluator {
                 gameover_penalty: 0.,
                 power: 2,
             })
-            .add(MonotonicityEvaluator {
+            .combine(MonotonicityEvaluator {
                 gameover_penalty: 0.,
                 monotonicity_power: 2,
             });

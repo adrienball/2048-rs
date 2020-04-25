@@ -139,11 +139,11 @@ impl Solver {
                     let max_score_2 = self
                         .eval_max(board_with_2, remaining_depth - 1, branch_proba * proba_2)
                         .map(|(_, score)| score)
-                        .unwrap_or(self.board_evaluator.gameover_penalty());
+                        .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
                     let max_score_4 = self
                         .eval_max(board_with_4, remaining_depth - 1, branch_proba * proba_4)
                         .map(|(_, score)| score)
-                        .unwrap_or(self.board_evaluator.gameover_penalty());
+                        .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
                     max_score_2 * proba_2 + max_score_4 * proba_4
                 })
                 .sum();

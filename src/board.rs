@@ -49,7 +49,7 @@ lazy_static! {
 impl Board {
     /// Returns the value at the corresponding index
     /// The underlying vector representation is used here
-    pub fn get_value(&self, tile_idx: u8) -> u16 {
+    pub fn get_value(self, tile_idx: u8) -> u16 {
         let exponent = self.get_exponent_value(tile_idx);
         if exponent == 0 {
             return 0;
@@ -60,8 +60,8 @@ impl Board {
     /// Returns the exponent of the value at the corresponding index
     /// For example, if `get_value(3)` returns `512`, then `get_exponent_value(3)` will return `9`
     /// because 512 = 2^9
-    pub fn get_exponent_value(&self, tile_idx: u8) -> u8 {
-        ((self.state >> 4 * (15 - tile_idx as u64)) & 0b1111) as u8
+    pub fn get_exponent_value(self, tile_idx: u8) -> u8 {
+        ((self.state >> (4 * (15 - tile_idx as u64))) & 0xf) as u8
     }
 
     /// Sets the value `tile_value` at the index `tile_idx`
@@ -76,25 +76,25 @@ impl Board {
     pub fn set_value_by_exponent(self, tile_idx: u8, value_exponent: u64) -> Self {
         let bits_shift = ((15 - tile_idx) * 4) as u64;
         // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
-        let clear_mask = !(0b1111 << bits_shift);
+        let clear_mask = !(0xf << bits_shift);
         let update_mask = value_exponent << bits_shift;
         let new_state = (self.state & clear_mask) | update_mask;
         Board { state: new_state }
     }
 
     /// Returns the 16 bits of the the specified row
-    pub fn get_row(&self, row_idx: u8) -> u16 {
+    pub fn get_row(self, row_idx: u8) -> u16 {
         let bit_shift = ((3 - row_idx) * 16) as u64;
-        ((self.state & (0b1111111111111111u64 << bit_shift)) >> bit_shift) as u16
+        ((self.state & (0xbffff_u64 << bit_shift)) >> bit_shift) as u16
     }
 
     /// Returns the 16 bits of the the specified column
-    pub fn get_column(&self, col_idx: u8) -> u16 {
+    pub fn get_column(self, col_idx: u8) -> u16 {
         let col_shift: u64 = 4 * (3 - col_idx as u64);
-        let mut column = (self.state >> col_shift) & 0b1111;
-        column |= (self.state >> (col_shift + 12)) & 0b1111_0000;
-        column |= (self.state >> (col_shift + 24)) & 0b1111_0000_0000;
-        column |= (self.state >> (col_shift + 36)) & 0b1111_0000_0000_0000;
+        let mut column = (self.state >> col_shift) & 0xf;
+        column |= (self.state >> (col_shift + 12)) & 0xf0;
+        column |= (self.state >> (col_shift + 24)) & 0xf00;
+        column |= (self.state >> (col_shift + 36)) & 0xf000;
         column as u16
     }
 
@@ -107,12 +107,10 @@ impl Board {
     /// Returns the indices of empty tiles
     pub fn empty_tiles_indices(self) -> Vec<u8> {
         let mut indices = Vec::<u8>::with_capacity(16);
-        let mut i = 0;
-        for tile in self.into_iter() {
+        for (i, tile) in self.into_iter().enumerate() {
             if tile == 0 {
-                indices.push(i)
+                indices.push(i as u8)
             }
-            i += 1;
         }
         indices
     }
@@ -169,10 +167,10 @@ impl Board {
             let col = self.get_column(col_idx);
             let up_col = LEFT_MOVES_TABLE[col as usize] as u64;
             let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0b1111_0000_0000_0000) << 36 + col_shift;
-            state |= (up_col & 0b1111_0000_0000) << 24 + col_shift;
-            state |= (up_col & 0b1111_0000) << 12 + col_shift;
-            state |= (up_col & 0b1111) << col_shift;
+            state |= (up_col & 0xf000) << (36 + col_shift);
+            state |= (up_col & 0xf00) << (24 + col_shift);
+            state |= (up_col & 0xf0) << (12 + col_shift);
+            state |= (up_col & 0xf) << col_shift;
         }
         Self { state }
     }
@@ -183,10 +181,10 @@ impl Board {
             let col = self.get_column(col_idx);
             let up_col = RIGHT_MOVES_TABLE[col as usize] as u64;
             let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0b1111_0000_0000_0000) << 36 + col_shift;
-            state |= (up_col & 0b1111_0000_0000) << 24 + col_shift;
-            state |= (up_col & 0b1111_0000) << 12 + col_shift;
-            state |= (up_col & 0b1111) << col_shift;
+            state |= (up_col & 0xf000) << (36 + col_shift);
+            state |= (up_col & 0xf00) << (24 + col_shift);
+            state |= (up_col & 0xf0) << (12 + col_shift);
+            state |= (up_col & 0xf) << col_shift;
         }
         Self { state }
     }
@@ -246,7 +244,7 @@ impl Iterator for BoardIntoReversedIterator {
         match self.index {
             16 => None,
             _ => {
-                let exponent = self.state & 0b1111;
+                let exponent = self.state & 0xf;
                 self.state >>= 4;
                 self.index += 1;
                 Some(exponent as u8)
@@ -282,32 +280,30 @@ impl From<Board> for Vec<u16> {
 }
 
 impl Board {
-    fn display(&self, f: &mut Formatter<'_>, debug: bool) -> Result<(), std::fmt::Error> {
+    fn display(self, f: &mut Formatter<'_>, debug: bool) -> Result<(), std::fmt::Error> {
         let mut display = String::new();
         let line_break = if debug { "\n" } else { "\n\r" };
         display.push_str(&*format!(
             "{b}╔═══════╦═══════╦═══════╦═══════╗{b}",
             b = line_break
         ));
-        for (i, tile) in Vec::from(*self).into_iter().enumerate() {
+        for (i, tile) in Vec::from(self).into_iter().enumerate() {
             if tile == 0 {
                 display.push_str("║       ");
+            } else if debug {
+                display.push_str(&*format!(
+                    "║{prefix}{tile} ",
+                    prefix = get_spaces_prefix(tile),
+                    tile = tile,
+                ));
             } else {
-                if debug {
-                    display.push_str(&*format!(
-                        "║{prefix}{tile} ",
-                        prefix = get_spaces_prefix(tile),
-                        tile = tile,
-                    ));
-                } else {
-                    display.push_str(&*format!(
-                        "║{prefix}{color}{tile}{reset} ",
-                        prefix = get_spaces_prefix(tile),
-                        color = get_color(tile),
-                        tile = tile,
-                        reset = color::Fg(color::Reset)
-                    ));
-                }
+                display.push_str(&*format!(
+                    "║{prefix}{color}{tile}{reset} ",
+                    prefix = get_spaces_prefix(tile),
+                    color = get_color(tile),
+                    tile = tile,
+                    reset = color::Fg(color::Reset)
+                ));
             }
             if i % 4 == 3 {
                 display.push_str(&*format!("║{b}", b = line_break));

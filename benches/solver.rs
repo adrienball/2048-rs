@@ -11,15 +11,15 @@ fn next_best_move(c: &mut Criterion) {
     let mut solver = SolverBuilder::default()
         .board_evaluator(PrecomputedBoardEvaluator::new(
             CombinedBoardEvaluator::default()
-                .add(MonotonicityEvaluator {
+                .combine(MonotonicityEvaluator {
                     gameover_penalty: -300.,
                     monotonicity_power: 2,
                 })
-                .add(EmptyTileEvaluator {
+                .combine(EmptyTileEvaluator {
                     gameover_penalty: 0.,
                     power: 2,
                 })
-                .add(AlignmentEvaluator {
+                .combine(AlignmentEvaluator {
                     gameover_penalty: 0.,
                     power: 2,
                 }),

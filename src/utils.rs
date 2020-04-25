@@ -22,43 +22,39 @@ pub fn get_exponent(value: u16) -> u64 {
 
 pub fn build_left_moves_table() -> Vec<u16> {
     (0..(std::u16::MAX as usize + 1))
-        .into_iter()
         .map(|x| get_left_move(x as u16))
         .collect()
 }
 
 pub fn build_right_moves_table() -> Vec<u16> {
     (0..(std::u16::MAX as usize + 1))
-        .into_iter()
         .map(|x| get_right_move(x as u16))
         .collect()
 }
 
 fn get_left_move(row: u16) -> u16 {
     let mut result = row;
-    let mut value_idx = 0;
     let mut prev_value = std::u8::MAX;
-    let mut new_value_idx = value_idx;
+    let mut new_value_idx = 0;
     // whether or not tiles have been moved in this row
     let mut moved = false;
     for i in 0..4 {
-        let value: u8 = ((row & (0b1111 << 4 * (3 - i))) >> 4 * (3 - i)) as u8;
+        let value: u8 = ((row & (0b1111 << (4 * (3 - i)))) >> (4 * (3 - i))) as u8;
         if value == 0 {
             moved = true;
         } else if value == prev_value {
             result = set_value_in_row(result, new_value_idx - 1, value + 1);
-            result = set_value_in_row(result, value_idx, 0);
+            result = set_value_in_row(result, i as u8, 0);
             prev_value = std::u8::MAX;
             moved = true;
         } else {
             if moved {
                 result = set_value_in_row(result, new_value_idx, value);
-                result = set_value_in_row(result, value_idx, 0);
+                result = set_value_in_row(result, i as u8, 0);
             }
             prev_value = value;
             new_value_idx += 1;
         }
-        value_idx += 1;
     }
     result
 }
@@ -70,7 +66,7 @@ fn get_right_move(row: u16) -> u16 {
 fn invert_row(row: u16) -> u16 {
     let mut inverted_row: u16 = 0;
     for i in 0..4 {
-        let value = (row >> 4 * i) & 0b1111;
+        let value = (row >> (4 * i)) & 0b1111;
         inverted_row = set_value_in_row(inverted_row, i as u8, value as u8);
     }
     inverted_row

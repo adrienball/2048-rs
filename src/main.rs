@@ -19,15 +19,15 @@ mod solver;
 mod utils;
 
 mod graphics {
-    pub const CONTROLS: &'static str = "╓─────────┬─────CONTROLS─────────╖\n\r\
-                                        ║ ← ↑ → ↓ | move tiles           ║\n\r\
-                                        ║      p  | use AI for next move ║\n\r\
-                                        ║      a  | toggle AI autoplay   ║\n\r\
-                                        ║      q  | quit                 ║\n\r\
-                                        ╚═════════╧══════════════════════╝";
+    pub const CONTROLS: &str = "╓─────────┬─────CONTROLS─────────╖\n\r\
+                                ║ ← ↑ → ↓ | move tiles           ║\n\r\
+                                ║      p  | use AI for next move ║\n\r\
+                                ║      a  | toggle AI autoplay   ║\n\r\
+                                ║      q  | quit                 ║\n\r\
+                                ╚═════════╧══════════════════════╝";
 }
 
-fn init_logger() -> () {
+fn init_logger() {
     env_logger::Builder::from_default_env()
         .format_timestamp_nanos()
         .init()
@@ -88,15 +88,15 @@ fn get_solver(matches: &ArgMatches) -> Solver {
     SolverBuilder::default()
         .board_evaluator(PrecomputedBoardEvaluator::new(
             CombinedBoardEvaluator::default()
-                .add(MonotonicityEvaluator {
+                .combine(MonotonicityEvaluator {
                     gameover_penalty: penalty,
                     monotonicity_power: 2,
                 })
-                .add(EmptyTileEvaluator {
+                .combine(EmptyTileEvaluator {
                     gameover_penalty: 0.,
                     power: 2,
                 })
-                .add(AlignmentEvaluator {
+                .combine(AlignmentEvaluator {
                     gameover_penalty: 0.,
                     power: 2,
                 }),
@@ -167,7 +167,7 @@ fn main() {
     loop {
         let interval = 10;
         let now = Instant::now();
-        let dt = (now.duration_since(before).subsec_nanos() / 1_000_000) as u64;
+        let dt = now.duration_since(before).subsec_millis() as u64;
 
         if dt < interval {
             sleep(Duration::from_millis(interval - dt));
@@ -185,18 +185,16 @@ fn main() {
                 Key::Up => play(&mut game, Direction::Up, &mut stdout),
                 Key::Down => play(&mut game, Direction::Down, &mut stdout),
                 Key::Char('p') => {
-                    solver
-                        .next_best_move(game.board)
-                        .map(|next_move| play(&mut game, next_move, &mut stdout));
+                    if let Some(next_move) = solver.next_best_move(game.board) {
+                        play(&mut game, next_move, &mut stdout)
+                    }
                 }
                 Key::Char('a') => autoplay = !autoplay,
                 _ => continue,
             };
-        } else {
-            if autoplay {
-                solver
-                    .next_best_move(game.board)
-                    .map(|next_move| play(&mut game, next_move, &mut stdout));
+        } else if autoplay {
+            if let Some(next_move) = solver.next_best_move(game.board) {
+                play(&mut game, next_move, &mut stdout)
             }
         }
     }
