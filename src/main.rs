@@ -37,6 +37,7 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
     App::new("2048")
         .about("The famous 2048 game")
         .setting(AppSettings::AllowLeadingHyphen)
+        .setting(AppSettings::ColoredHelp)
         .arg(
             Arg::with_name("proba_4")
                 .short("p")
@@ -51,7 +52,11 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .long("--depth")
                 .takes_value(true)
                 .default_value("3")
-                .help("max search depth which will be used in the expectiminimax algorithm"),
+                .help(
+                    "Max search depth which will be used in the expectiminimax algorithm. \
+                    Increasing this value will improve the performances while slowing down the \
+                    algorithm.",
+                ),
         )
         .arg(
             Arg::with_name("gameover_penalty")
@@ -67,7 +72,11 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .long("--min-branch-proba")
                 .takes_value(true)
                 .default_value("0.001")
-                .help("minimum probability for a branch to be explored"),
+                .help(
+                    "Minimum probability for a branch to be explored. \
+                    Decreasing this value will improve the performances while slowing down the \
+                    algorithm.",
+                ),
         )
         .arg(
             Arg::with_name("distinct_tiles_threshold")
@@ -76,8 +85,10 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .default_value("5")
                 .help(
-                    "threshold, in terms of number of distinct tiles, which is used to adjust \
-                     the effective max search depth",
+                    "Threshold, in terms of number of distinct tiles, which is used to adjust \
+                     the effective max search depth. \
+                     Decreasing this value will improve the performances while slowing down the \
+                     algorithm.",
                 ),
         )
 }
