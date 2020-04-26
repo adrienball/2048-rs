@@ -12,6 +12,29 @@ pub trait BoardEvaluator {
 pub trait RowColumnEvaluator {
     fn evaluate_row(&self, row: u16) -> f32;
     fn gameover_penalty(&self) -> f32;
+
+    fn get_statistics(&self) -> EvaluatorStats {
+        let values: Vec<f32> = (0..(std::u16::MAX as usize + 1))
+            .map(|row| self.evaluate_row(row as u16))
+            .collect();
+        let mut max_value = f32::MIN;
+        let mut min_value = f32::MAX;
+        for v in values.iter() {
+            if *v > max_value {
+                max_value = *v;
+            }
+            if *v < min_value {
+                min_value = *v;
+            }
+        }
+        let mean = values.iter().sum::<f32>() / (std::u16::MAX as f32 + 1.);
+        EvaluatorStats {
+            max_value,
+            min_value,
+            mean,
+            standard_dev: 0.,
+        }
+    }
 }
 
 impl<T> BoardEvaluator for T
@@ -27,6 +50,14 @@ where
     fn gameover_penalty(&self) -> f32 {
         self.gameover_penalty()
     }
+}
+
+#[derive(Debug)]
+pub struct EvaluatorStats {
+    pub max_value: f32,
+    pub min_value: f32,
+    pub mean: f32,
+    pub standard_dev: f32,
 }
 
 /// `BoardEvaluator` implementation which encapsulates a `RowColumnEvaluator` and pre-computes
@@ -56,15 +87,16 @@ impl PrecomputedBoardEvaluator {
 /// their evaluations
 #[derive(Default)]
 pub struct CombinedBoardEvaluator {
-    evaluators: Vec<Box<dyn RowColumnEvaluator>>,
+    /// evaluators along with their weight
+    evaluators: Vec<(Box<dyn RowColumnEvaluator>, f32)>,
 }
 
 impl CombinedBoardEvaluator {
-    pub fn combine<T>(mut self, evaluator: T) -> Self
+    pub fn combine<T>(mut self, evaluator: T, weight: f32) -> Self
     where
         T: RowColumnEvaluator + 'static,
     {
-        self.evaluators.push(Box::new(evaluator));
+        self.evaluators.push((Box::new(evaluator), weight));
         self
     }
 }
@@ -73,14 +105,14 @@ impl RowColumnEvaluator for CombinedBoardEvaluator {
     fn evaluate_row(&self, row: u16) -> f32 {
         self.evaluators
             .iter()
-            .map(|evaluator| evaluator.evaluate_row(row))
+            .map(|(evaluator, weight)| weight * evaluator.evaluate_row(row))
             .sum()
     }
 
     fn gameover_penalty(&self) -> f32 {
         self.evaluators
             .iter()
-            .map(|evaluator| evaluator.gameover_penalty())
+            .map(|(evaluator, _)| evaluator.gameover_penalty())
             .sum()
     }
 }
@@ -191,11 +223,11 @@ impl Default for MonotonicityEvaluator {
 
 impl RowColumnEvaluator for MonotonicityEvaluator {
     fn evaluate_row(&self, row: u16) -> f32 {
-        let mut left_value = row >> 12;
+        let mut left_value: u32 = (row >> 12) as u32;
         let mut left_right_inversions = 0;
         let mut right_left_inversions = 0;
         for col in 1..4 {
-            let v = (row >> (4 * (3 - col))) & 0b1111;
+            let v: u32 = ((row >> (4 * (3 - col))) & 0b1111) as u32;
             match v.cmp(&left_value) {
                 Ordering::Less => {
                     left_right_inversions +=
@@ -220,6 +252,33 @@ impl RowColumnEvaluator for MonotonicityEvaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_debug() {
+        let evaluator = CombinedBoardEvaluator::default()
+            .combine(
+                MonotonicityEvaluator {
+                    gameover_penalty: -200000.,
+                    monotonicity_power: 4,
+                },
+                1.0,
+            )
+            .combine(
+                EmptyTileEvaluator {
+                    gameover_penalty: 0.,
+                    power: 1,
+                },
+                200.0,
+            )
+            .combine(
+                AlignmentEvaluator {
+                    gameover_penalty: 0.,
+                    power: 1,
+                },
+                500.0,
+            );
+        eprintln!("evaluator.stats = {:?}", evaluator.get_statistics());
+    }
 
     #[test]
     fn test_empty_tile_evaluator() {
@@ -322,21 +381,27 @@ mod tests {
         ];
         let board = Board::from(vec_board);
         let evaluator = CombinedBoardEvaluator::default()
-            .combine(EmptyTileEvaluator {
-                gameover_penalty: 0.,
-                power: 2,
-            })
-            .combine(MonotonicityEvaluator {
-                gameover_penalty: 0.,
-                monotonicity_power: 2,
-            });
+            .combine(
+                EmptyTileEvaluator {
+                    gameover_penalty: 0.,
+                    power: 2,
+                },
+                2.0,
+            )
+            .combine(
+                MonotonicityEvaluator {
+                    gameover_penalty: 0.,
+                    monotonicity_power: 2,
+                },
+                1.0,
+            );
 
         // When
         let evaluation_1 = evaluator.evaluate_row(board.get_row(1));
         let evaluation_2 = evaluator.evaluate_row(board.get_row(2));
 
         // Then
-        assert_eq!(-9. + 4., evaluation_1);
-        assert_eq!(-15. + 1., evaluation_2);
+        assert_eq!(-9. + 2. * 4., evaluation_1);
+        assert_eq!(-15. + 2. * 1., evaluation_2);
     }
 }

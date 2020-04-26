@@ -63,7 +63,7 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .short("g")
                 .long("--gameover-penalty")
                 .takes_value(true)
-                .default_value("-300")
+                .default_value("-200000")
                 .help("penalty to apply to 'dead-end' branches"),
         )
         .arg(
@@ -71,7 +71,7 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .short("m")
                 .long("--min-branch-proba")
                 .takes_value(true)
-                .default_value("0.001")
+                .default_value("0.0001")
                 .help(
                     "Minimum probability for a branch to be explored. \
                     Decreasing this value will improve the performances while slowing down the \
@@ -86,18 +86,27 @@ fn get_solver(matches: &ArgMatches) -> Solver {
     SolverBuilder::default()
         .board_evaluator(PrecomputedBoardEvaluator::new(
             CombinedBoardEvaluator::default()
-                .combine(MonotonicityEvaluator {
-                    gameover_penalty: penalty,
-                    monotonicity_power: 2,
-                })
-                .combine(EmptyTileEvaluator {
-                    gameover_penalty: 0.,
-                    power: 2,
-                })
-                .combine(AlignmentEvaluator {
-                    gameover_penalty: 0.,
-                    power: 2,
-                }),
+                .combine(
+                    MonotonicityEvaluator {
+                        gameover_penalty: penalty,
+                        monotonicity_power: 4,
+                    },
+                    1.0,
+                )
+                .combine(
+                    EmptyTileEvaluator {
+                        gameover_penalty: 0.,
+                        power: 2,
+                    },
+                    200.0,
+                )
+                .combine(
+                    AlignmentEvaluator {
+                        gameover_penalty: 0.,
+                        power: 1,
+                    },
+                    500.0,
+                ),
         ))
         .proba_4(proba_4)
         .base_max_search_depth(usize::from_str(matches.value_of("depth").unwrap()).unwrap())
