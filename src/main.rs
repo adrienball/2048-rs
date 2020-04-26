@@ -53,7 +53,7 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .takes_value(true)
                 .default_value("3")
                 .help(
-                    "Max search depth which will be used in the expectiminimax algorithm. \
+                    "Minimum search depth which will be used in the expectimax algorithm. \
                     Increasing this value will improve the performances while slowing down the \
                     algorithm.",
                 ),
@@ -76,19 +76,6 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                     "Minimum probability for a branch to be explored. \
                     Decreasing this value will improve the performances while slowing down the \
                     algorithm.",
-                ),
-        )
-        .arg(
-            Arg::with_name("distinct_tiles_threshold")
-                .short("t")
-                .long("--distinct-tiles-threshold")
-                .takes_value(true)
-                .default_value("5")
-                .help(
-                    "Threshold, in terms of number of distinct tiles, which is used to adjust \
-                     the effective max search depth. \
-                     Decreasing this value will improve the performances while slowing down the \
-                     algorithm.",
                 ),
         )
 }
@@ -114,9 +101,6 @@ fn get_solver(matches: &ArgMatches) -> Solver {
         ))
         .proba_4(proba_4)
         .base_max_search_depth(usize::from_str(matches.value_of("depth").unwrap()).unwrap())
-        .distinct_tiles_threshold(
-            usize::from_str(matches.value_of("distinct_tiles_threshold").unwrap()).unwrap(),
-        )
         .min_branch_proba(f32::from_str(matches.value_of("min_branch_proba").unwrap()).unwrap())
         .build()
 }

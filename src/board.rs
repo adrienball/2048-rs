@@ -101,7 +101,7 @@ impl Board {
     /// Returns the maximum value of the board
     pub fn max_value(self) -> u16 {
         let exponent = self.into_iter().max().unwrap();
-        2 << (exponent - 1) as u16
+        1 << exponent as u16
     }
 
     /// Returns the indices of empty tiles

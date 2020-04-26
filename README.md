@@ -12,6 +12,24 @@ recommend the best next move at each step.
     <img src="./.img/screenshot.png?raw=true" alt="Game screenshot" width="230">
 </p>
 
+## Statistics
+
+Here are the statistics of the AI with its default parameters:
+
+2048    
+4096    1
+8192    3
+16384   6
+32768   
+
+| max tile  reached | frequency |
+|------------------:|----------:|
+|              2048 |     100 % |
+|              4096 |     100 % |
+|              8192 |     100 % |
+|             16384 |     100 % |
+|             32768 |     100 % |
+
 ## Installation with Cargo
 ```bash
 cargo install play-2048

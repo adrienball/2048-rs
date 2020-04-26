@@ -9,8 +9,7 @@ pub struct Solver {
     proba_4: f32,
     base_max_search_depth: usize,
     min_branch_proba: f32,
-    distinct_tiles_threshold: usize,
-    transposition_table: FnvHashMap<Board, (f32, usize)>,
+    transposition_table: FnvHashMap<Board, (f32, f32)>,
 }
 
 pub struct SolverBuilder {
@@ -18,7 +17,6 @@ pub struct SolverBuilder {
     proba_4: f32,
     base_max_search_depth: usize,
     min_branch_proba: f32,
-    distinct_tiles_threshold: usize,
 }
 
 impl Default for SolverBuilder {
@@ -30,7 +28,6 @@ impl Default for SolverBuilder {
             proba_4: 0.1,
             base_max_search_depth: 3,
             min_branch_proba: 0.1 * 0.1,
-            distinct_tiles_threshold: 4,
         }
     }
 }
@@ -66,13 +63,6 @@ impl SolverBuilder {
         self
     }
 
-    /// Sets the threshold, in terms of number of distinct tiles, which is used to adjust the
-    /// effective max search depth
-    pub fn distinct_tiles_threshold(mut self, threshold: usize) -> Self {
-        self.distinct_tiles_threshold = threshold;
-        self
-    }
-
     pub fn build(self) -> Solver {
         Solver {
             board_evaluator: self.board_evaluator,
@@ -80,7 +70,6 @@ impl SolverBuilder {
             proba_4: self.proba_4,
             base_max_search_depth: self.base_max_search_depth,
             min_branch_proba: self.min_branch_proba,
-            distinct_tiles_threshold: self.distinct_tiles_threshold,
             transposition_table: Default::default(),
         }
     }
@@ -88,13 +77,25 @@ impl SolverBuilder {
 
 impl Solver {
     pub fn next_best_move(&mut self, board: Board) -> Option<Direction> {
-        let max_depth = max(
-            self.base_max_search_depth as isize,
-            board.count_distinct_tiles() as isize - self.distinct_tiles_threshold as isize,
-        );
-        self.transposition_table.clear();
+        let max_depth = self.compute_max_depth(board);
+        self.transposition_table = FnvHashMap::default();
         self.eval_max(board, max_depth as usize, 1.0)
             .map(|(d, _)| d)
+    }
+
+    fn compute_max_depth(&self, board: Board) -> usize {
+        let adjustment_factor = match board.max_value() {
+            2048 => 6,
+            4096 => 5,
+            8192 => 3,
+            16384 => 2,
+            32768 => 1,
+            _ => 7,
+        };
+        max(
+            self.base_max_search_depth as isize,
+            board.count_distinct_tiles() as isize - adjustment_factor,
+        ) as usize
     }
 
     fn eval_max(
@@ -119,8 +120,8 @@ impl Solver {
     }
 
     fn eval_average(&mut self, board: Board, remaining_depth: usize, branch_proba: f32) -> f32 {
-        if let Some((cached_value, cached_remaining_depth)) = self.transposition_table.get(&board) {
-            if *cached_remaining_depth >= remaining_depth {
+        if let Some((cached_value, cached_proba)) = self.transposition_table.get(&board) {
+            if *cached_proba >= branch_proba {
                 return *cached_value;
             }
         }
@@ -128,7 +129,7 @@ impl Solver {
             self.board_evaluator.evaluate(board)
         } else {
             let empty_tiles_indices = board.empty_tiles_indices();
-            let nb_empty_tiles = empty_tiles_indices.len();
+            let nb_empty_tiles = empty_tiles_indices.len() as f32;
             let proba_2 = self.proba_2;
             let proba_4 = self.proba_4;
             let scores_sum: f32 = empty_tiles_indices
@@ -137,11 +138,19 @@ impl Solver {
                     let board_with_2 = board.set_value_by_exponent(idx, 1);
                     let board_with_4 = board.set_value_by_exponent(idx, 2);
                     let max_score_2 = self
-                        .eval_max(board_with_2, remaining_depth - 1, branch_proba * proba_2)
+                        .eval_max(
+                            board_with_2,
+                            remaining_depth - 1,
+                            branch_proba * proba_2 / nb_empty_tiles,
+                        )
                         .map(|(_, score)| score)
                         .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
                     let max_score_4 = self
-                        .eval_max(board_with_4, remaining_depth - 1, branch_proba * proba_4)
+                        .eval_max(
+                            board_with_4,
+                            remaining_depth - 1,
+                            branch_proba * proba_4 / nb_empty_tiles,
+                        )
                         .map(|(_, score)| score)
                         .unwrap_or_else(|| self.board_evaluator.gameover_penalty());
                     max_score_2 * proba_2 + max_score_4 * proba_4
@@ -150,7 +159,7 @@ impl Solver {
             scores_sum / nb_empty_tiles as f32
         };
         self.transposition_table
-            .insert(board, (average, remaining_depth));
+            .insert(board, (average, branch_proba));
         average
     }
 }
