@@ -16,10 +16,20 @@ recommend the best next move at each step.
 
 Here are the statistics of the AI with its default parameters:
 
+### Before optimizations and small change on eval_average
+
+2048    
+4096    2
+8192    5
+16384   20
+32768   5
+
+### After
+
 2048    
 4096    1
-8192    3
-16384   6
+8192    1
+16384   9
 32768   
 
 | max tile  reached | frequency |
