@@ -96,7 +96,7 @@ fn get_solver(matches: &ArgMatches) -> Solver {
                 .combine(
                     EmptyTileEvaluator {
                         gameover_penalty: 0.,
-                        power: 2,
+                        power: 1,
                     },
                     200.0,
                 )

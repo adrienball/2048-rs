@@ -40,7 +40,7 @@ fn next_best_move(c: &mut Criterion) {
 
     #[rustfmt::skip]
     let board = Board::from(vec![
-        128, 256, 512, 8192,
+        128, 256, 512, 2048,
         64, 16, 8, 4,
         16, 4, 8, 4,
         4, 4, 8, 4,

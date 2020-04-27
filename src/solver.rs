@@ -85,8 +85,8 @@ impl Solver {
 
     fn compute_max_depth(&self, board: Board) -> usize {
         let adjustment_factor = match board.max_value() {
-            2048 => 6,
-            4096 => 5,
+            2048 => 5,
+            4096 => 3,
             8192 => 3,
             16384 => 2,
             32768 => 1,
