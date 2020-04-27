@@ -12,29 +12,6 @@ pub trait BoardEvaluator {
 pub trait RowColumnEvaluator {
     fn evaluate_row(&self, row: u16) -> f32;
     fn gameover_penalty(&self) -> f32;
-
-    fn get_statistics(&self) -> EvaluatorStats {
-        let values: Vec<f32> = (0..(std::u16::MAX as usize + 1))
-            .map(|row| self.evaluate_row(row as u16))
-            .collect();
-        let mut max_value = f32::MIN;
-        let mut min_value = f32::MAX;
-        for v in values.iter() {
-            if *v > max_value {
-                max_value = *v;
-            }
-            if *v < min_value {
-                min_value = *v;
-            }
-        }
-        let mean = values.iter().sum::<f32>() / (std::u16::MAX as f32 + 1.);
-        EvaluatorStats {
-            max_value,
-            min_value,
-            mean,
-            standard_dev: 0.,
-        }
-    }
 }
 
 impl<T> BoardEvaluator for T
@@ -53,14 +30,6 @@ where
     fn gameover_penalty(&self) -> f32 {
         self.gameover_penalty()
     }
-}
-
-#[derive(Debug)]
-pub struct EvaluatorStats {
-    pub max_value: f32,
-    pub min_value: f32,
-    pub mean: f32,
-    pub standard_dev: f32,
 }
 
 /// `BoardEvaluator` implementation which encapsulates a `RowColumnEvaluator` and pre-computes
@@ -255,33 +224,6 @@ impl RowColumnEvaluator for MonotonicityEvaluator {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_debug() {
-        let evaluator = CombinedBoardEvaluator::default()
-            .combine(
-                MonotonicityEvaluator {
-                    gameover_penalty: -200000.,
-                    monotonicity_power: 4,
-                },
-                1.0,
-            )
-            .combine(
-                EmptyTileEvaluator {
-                    gameover_penalty: 0.,
-                    power: 1,
-                },
-                200.0,
-            )
-            .combine(
-                AlignmentEvaluator {
-                    gameover_penalty: 0.,
-                    power: 1,
-                },
-                500.0,
-            );
-        eprintln!("evaluator.stats = {:?}", evaluator.get_statistics());
-    }
 
     #[test]
     fn test_empty_tile_evaluator() {
