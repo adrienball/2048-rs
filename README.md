@@ -30,7 +30,15 @@ Decreasing this value would lead to better performance, as more branches would b
 Some other hardcoded parameters can be tweaked in order to further improve the algorithm. 
 I have not performed an exhaustive grid search, thus the parameter set is probably sub-optimal.
 
-## Installation with Cargo
+## Installation
+
+`Rust` and `cargo` must be installed to run this game:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### With Cargo
 
 ```bash
 cargo install play-2048
@@ -42,7 +50,7 @@ Then, in order to play:
 play-2048
 ```
 
-## Installation from source
+### From source
 
 ```bash
 > git clone https://github.com/adrienball/2048-rs.git
