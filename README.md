@@ -27,7 +27,7 @@ Here are the statistics of the AI with its default parameters:
 In particular, these statistics correspond to a minimum branch probability of `0.001`. 
 Decreasing this value would lead to better performance, as more branches would be explored, but this would also take more time.
 
-Some other hardcoded parameters can be tweaked to further improve the algorithm. 
+Some other hardcoded parameters can be tweaked in order to further improve the algorithm. 
 I have not performed an exhaustive grid search, thus the parameter set is probably sub-optimal.
 
 ## Installation with Cargo
