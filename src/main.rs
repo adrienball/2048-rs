@@ -59,19 +59,11 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 ),
         )
         .arg(
-            Arg::with_name("gameover_penalty")
-                .short("g")
-                .long("--gameover-penalty")
-                .takes_value(true)
-                .default_value("-200000")
-                .help("penalty to apply to 'dead-end' branches"),
-        )
-        .arg(
             Arg::with_name("min_branch_proba")
                 .short("m")
                 .long("--min-branch-proba")
                 .takes_value(true)
-                .default_value("0.0001")
+                .default_value("0.001")
                 .help(
                     "Minimum probability for a branch to be explored. \
                     Decreasing this value will improve the performances while slowing down the \
@@ -81,14 +73,13 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
 }
 
 fn get_solver(matches: &ArgMatches) -> Solver {
-    let penalty = f32::from_str(matches.value_of("gameover_penalty").unwrap()).unwrap();
     let proba_4 = f32::from_str(matches.value_of("proba_4").unwrap()).unwrap();
     SolverBuilder::default()
         .board_evaluator(PrecomputedBoardEvaluator::new(
             CombinedBoardEvaluator::default()
                 .combine(
                     MonotonicityEvaluator {
-                        gameover_penalty: penalty,
+                        gameover_penalty: -200_000.,
                         monotonicity_power: 4,
                     },
                     1.0,
