@@ -27,12 +27,6 @@ mod graphics {
                                 ╚═════════╧══════════════════════╝";
 }
 
-fn init_logger() {
-    env_logger::Builder::from_default_env()
-        .format_timestamp_nanos()
-        .init()
-}
-
 fn get_app<'a, 'b>() -> App<'a, 'b> {
     App::new("2048")
         .about("The famous 2048 game")
@@ -129,7 +123,6 @@ fn play(game: &mut Game, direction: Direction, stdout: &mut StdoutLock) {
 }
 
 fn main() {
-    init_logger();
     let matches = get_app().get_matches();
     let mut solver = get_solver(&matches);
     let proba_4 = f32::from_str(matches.value_of("proba_4").unwrap()).unwrap();
