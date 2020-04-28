@@ -21,9 +21,9 @@ impl Game {
     pub fn populate_new_tile(&mut self) {
         let rnd_value: f32 = self.rng.gen();
         let populated_value = if rnd_value < self.proba_4 { 4 } else { 2 };
-        let empty_tiles = self.board.empty_tiles_indices();
+        let empty_tiles: Vec<_> = self.board.empty_tiles_indices().collect();
         let mut rnd_idx: usize = self.rng.gen();
-        rnd_idx = rnd_idx % empty_tiles.len();
+        rnd_idx %= empty_tiles.len();
         self.board = self.board.set_value(empty_tiles[rnd_idx], populated_value);
     }
 }

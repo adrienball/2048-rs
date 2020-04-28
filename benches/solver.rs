@@ -11,28 +11,36 @@ fn next_best_move(c: &mut Criterion) {
     let mut solver = SolverBuilder::default()
         .board_evaluator(PrecomputedBoardEvaluator::new(
             CombinedBoardEvaluator::default()
-                .add(MonotonicityEvaluator {
-                    gameover_penalty: -300.,
-                    monotonicity_power: 2,
-                })
-                .add(EmptyTileEvaluator {
-                    gameover_penalty: 0.,
-                    power: 2,
-                })
-                .add(AlignmentEvaluator {
-                    gameover_penalty: 0.,
-                    power: 2,
-                }),
+                .combine(
+                    MonotonicityEvaluator {
+                        gameover_penalty: -300.,
+                        monotonicity_power: 2,
+                    },
+                    1.0,
+                )
+                .combine(
+                    EmptyTileEvaluator {
+                        gameover_penalty: 0.,
+                        power: 2,
+                    },
+                    200.0,
+                )
+                .combine(
+                    AlignmentEvaluator {
+                        gameover_penalty: 0.,
+                        power: 2,
+                    },
+                    500.0,
+                ),
         ))
         .proba_4(0.1)
         .base_max_search_depth(4)
-        .distinct_tiles_threshold(5)
         .min_branch_proba(0.0001)
         .build();
 
     #[rustfmt::skip]
     let board = Board::from(vec![
-        128, 256, 512, 1024,
+        128, 256, 512, 2048,
         64, 16, 8, 4,
         16, 4, 8, 4,
         4, 4, 8, 4,

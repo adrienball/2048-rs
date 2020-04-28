@@ -19,24 +19,19 @@ mod solver;
 mod utils;
 
 mod graphics {
-    pub const CONTROLS: &'static str = "╓─────────┬─────CONTROLS─────────╖\n\r\
-                                        ║ ← ↑ → ↓ | move tiles           ║\n\r\
-                                        ║      p  | use AI for next move ║\n\r\
-                                        ║      a  | toggle AI autoplay   ║\n\r\
-                                        ║      q  | quit                 ║\n\r\
-                                        ╚═════════╧══════════════════════╝";
-}
-
-fn init_logger() -> () {
-    env_logger::Builder::from_default_env()
-        .format_timestamp_nanos()
-        .init()
+    pub const CONTROLS: &str = "╓─────────┬─────CONTROLS─────────╖\n\r\
+                                ║ ← ↑ → ↓ | move tiles           ║\n\r\
+                                ║      p  | use AI for next move ║\n\r\
+                                ║      a  | toggle AI autoplay   ║\n\r\
+                                ║      q  | quit                 ║\n\r\
+                                ╚═════════╧══════════════════════╝";
 }
 
 fn get_app<'a, 'b>() -> App<'a, 'b> {
     App::new("2048")
         .about("The famous 2048 game")
         .setting(AppSettings::AllowLeadingHyphen)
+        .setting(AppSettings::ColoredHelp)
         .arg(
             Arg::with_name("proba_4")
                 .short("p")
@@ -51,15 +46,11 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .long("--depth")
                 .takes_value(true)
                 .default_value("3")
-                .help("max search depth which will be used in the expectiminimax algorithm"),
-        )
-        .arg(
-            Arg::with_name("gameover_penalty")
-                .short("g")
-                .long("--gameover-penalty")
-                .takes_value(true)
-                .default_value("-300")
-                .help("penalty to apply to 'dead-end' branches"),
+                .help(
+                    "Minimum search depth which will be used in the expectimax algorithm. \
+                    Increasing this value will improve the performances while slowing down the \
+                    algorithm.",
+                ),
         )
         .arg(
             Arg::with_name("min_branch_proba")
@@ -67,45 +58,43 @@ fn get_app<'a, 'b>() -> App<'a, 'b> {
                 .long("--min-branch-proba")
                 .takes_value(true)
                 .default_value("0.001")
-                .help("minimum probability for a branch to be explored"),
-        )
-        .arg(
-            Arg::with_name("distinct_tiles_threshold")
-                .short("t")
-                .long("--distinct-tiles-threshold")
-                .takes_value(true)
-                .default_value("5")
                 .help(
-                    "threshold, in terms of number of distinct tiles, which is used to adjust \
-                     the effective max search depth",
+                    "Minimum probability for a branch to be explored. \
+                    Decreasing this value will improve the performances while slowing down the \
+                    algorithm.",
                 ),
         )
 }
 
 fn get_solver(matches: &ArgMatches) -> Solver {
-    let penalty = f32::from_str(matches.value_of("gameover_penalty").unwrap()).unwrap();
     let proba_4 = f32::from_str(matches.value_of("proba_4").unwrap()).unwrap();
     SolverBuilder::default()
         .board_evaluator(PrecomputedBoardEvaluator::new(
             CombinedBoardEvaluator::default()
-                .add(MonotonicityEvaluator {
-                    gameover_penalty: penalty,
-                    monotonicity_power: 2,
-                })
-                .add(EmptyTileEvaluator {
-                    gameover_penalty: 0.,
-                    power: 2,
-                })
-                .add(AlignmentEvaluator {
-                    gameover_penalty: 0.,
-                    power: 2,
-                }),
+                .combine(
+                    MonotonicityEvaluator {
+                        gameover_penalty: -200_000.,
+                        monotonicity_power: 4,
+                    },
+                    1.0,
+                )
+                .combine(
+                    EmptyTileEvaluator {
+                        gameover_penalty: 0.,
+                        power: 1,
+                    },
+                    200.0,
+                )
+                .combine(
+                    AlignmentEvaluator {
+                        gameover_penalty: 0.,
+                        power: 1,
+                    },
+                    500.0,
+                ),
         ))
         .proba_4(proba_4)
         .base_max_search_depth(usize::from_str(matches.value_of("depth").unwrap()).unwrap())
-        .distinct_tiles_threshold(
-            usize::from_str(matches.value_of("distinct_tiles_threshold").unwrap()).unwrap(),
-        )
         .min_branch_proba(f32::from_str(matches.value_of("min_branch_proba").unwrap()).unwrap())
         .build()
 }
@@ -134,7 +123,6 @@ fn play(game: &mut Game, direction: Direction, stdout: &mut StdoutLock) {
 }
 
 fn main() {
-    init_logger();
     let matches = get_app().get_matches();
     let mut solver = get_solver(&matches);
     let proba_4 = f32::from_str(matches.value_of("proba_4").unwrap()).unwrap();
@@ -167,7 +155,7 @@ fn main() {
     loop {
         let interval = 10;
         let now = Instant::now();
-        let dt = (now.duration_since(before).subsec_nanos() / 1_000_000) as u64;
+        let dt = now.duration_since(before).subsec_millis() as u64;
 
         if dt < interval {
             sleep(Duration::from_millis(interval - dt));
@@ -185,18 +173,16 @@ fn main() {
                 Key::Up => play(&mut game, Direction::Up, &mut stdout),
                 Key::Down => play(&mut game, Direction::Down, &mut stdout),
                 Key::Char('p') => {
-                    solver
-                        .next_best_move(game.board)
-                        .map(|next_move| play(&mut game, next_move, &mut stdout));
+                    if let Some(next_move) = solver.next_best_move(game.board) {
+                        play(&mut game, next_move, &mut stdout)
+                    }
                 }
                 Key::Char('a') => autoplay = !autoplay,
                 _ => continue,
             };
-        } else {
-            if autoplay {
-                solver
-                    .next_best_move(game.board)
-                    .map(|next_move| play(&mut game, next_move, &mut stdout));
+        } else if autoplay {
+            if let Some(next_move) = solver.next_best_move(game.board) {
+                play(&mut game, next_move, &mut stdout)
             }
         }
     }

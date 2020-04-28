@@ -12,12 +12,32 @@ recommend the best next move at each step.
     <img src="./.img/screenshot.png?raw=true" alt="Game screenshot" width="230">
 </p>
 
+## Statistics
+
+Here are the statistics of the AI with its default parameters:
+
+| max tile reached | frequency |
+|-----------------:|----------:|
+|             2048 |     100 % |
+|             4096 |     100 % |
+|             8192 |      96 % |
+|            16384 |      70 % |
+|            32768 |      10 % |
+
+In particular, these statistics correspond to a minimum branch probability of `0.001`. 
+Decreasing this value would lead to better performance, as more branches would be explored, but this would also take more time.
+
+Some other hardcoded parameters can be tweaked in order to further improve the algorithm. 
+I have not performed an exhaustive grid search, thus the parameter set is probably sub-optimal.
+
 ## Installation with Cargo
+
 ```bash
 cargo install play-2048
 ```
 
 Then, in order to play:
+
 ```bash
 play-2048
 ```
@@ -30,17 +50,24 @@ play-2048
 > cargo run --release
 ```
 
-Some parameters, like the probability of drawing a 4 tile, can be changed by passing additional 
-parameters to the `cargo run` (or alternatively `play-2048`) command:
+## Usage
+
+You can change the probability of drawing a 4 tile:
 
 ```bash
-> cargo run --release -- --proba-4 0.5
+> play-2048 --proba-4 0.5
+```
+
+Or adjust the minimum branch probability of the expectiminimax search:
+
+```bash
+> play-2048 --min-branch-proba 0.0001
 ```
 
 To get the list of available options, simply run:
 
 ```bash
-> cargo run --release -- --help
+> play-2048 --help
 ```
 
 # License

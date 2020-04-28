@@ -49,7 +49,7 @@ lazy_static! {
 impl Board {
     /// Returns the value at the corresponding index
     /// The underlying vector representation is used here
-    pub fn get_value(&self, tile_idx: u8) -> u16 {
+    pub fn get_value(self, tile_idx: u8) -> u16 {
         let exponent = self.get_exponent_value(tile_idx);
         if exponent == 0 {
             return 0;
@@ -60,8 +60,8 @@ impl Board {
     /// Returns the exponent of the value at the corresponding index
     /// For example, if `get_value(3)` returns `512`, then `get_exponent_value(3)` will return `9`
     /// because 512 = 2^9
-    pub fn get_exponent_value(&self, tile_idx: u8) -> u8 {
-        ((self.state >> 4 * (15 - tile_idx as u64)) & 0b1111) as u8
+    pub fn get_exponent_value(self, tile_idx: u8) -> u8 {
+        ((self.state >> (4 * (15 - tile_idx as u64))) & 0xF) as u8
     }
 
     /// Sets the value `tile_value` at the index `tile_idx`
@@ -76,45 +76,43 @@ impl Board {
     pub fn set_value_by_exponent(self, tile_idx: u8, value_exponent: u64) -> Self {
         let bits_shift = ((15 - tile_idx) * 4) as u64;
         // bitmask with 0000 at the corresponding tile_idx and 1s everywhere else
-        let clear_mask = !(0b1111 << bits_shift);
+        let clear_mask = !(0xF << bits_shift);
         let update_mask = value_exponent << bits_shift;
         let new_state = (self.state & clear_mask) | update_mask;
         Board { state: new_state }
     }
 
-    /// Returns the 16 bits of the the specified row
-    pub fn get_row(&self, row_idx: u8) -> u16 {
-        let bit_shift = ((3 - row_idx) * 16) as u64;
-        ((self.state & (0b1111111111111111u64 << bit_shift)) >> bit_shift) as u16
+    /// Returns the rows
+    pub fn rows(self) -> [u16; 4] {
+        let row1 = ((self.state & 0xFFFF_0000_0000_0000) >> 48) as u16;
+        let row2 = ((self.state & 0x0000_FFFF_0000_0000) >> 32) as u16;
+        let row3 = ((self.state & 0x0000_0000_FFFF_0000) >> 16) as u16;
+        let row4 = (self.state & 0x0000_0000_0000_FFFF) as u16;
+        [row1, row2, row3, row4]
     }
 
-    /// Returns the 16 bits of the the specified column
-    pub fn get_column(&self, col_idx: u8) -> u16 {
-        let col_shift: u64 = 4 * (3 - col_idx as u64);
-        let mut column = (self.state >> col_shift) & 0b1111;
-        column |= (self.state >> (col_shift + 12)) & 0b1111_0000;
-        column |= (self.state >> (col_shift + 24)) & 0b1111_0000_0000;
-        column |= (self.state >> (col_shift + 36)) & 0b1111_0000_0000_0000;
-        column as u16
+    /// Returns the columns
+    pub fn columns(self) -> [u16; 4] {
+        self.transpose().rows()
     }
 
     /// Returns the maximum value of the board
     pub fn max_value(self) -> u16 {
         let exponent = self.into_iter().max().unwrap();
-        2 << (exponent - 1) as u16
+        1 << exponent as u16
     }
 
     /// Returns the indices of empty tiles
-    pub fn empty_tiles_indices(self) -> Vec<u8> {
-        let mut indices = Vec::<u8>::with_capacity(16);
-        let mut i = 0;
-        for tile in self.into_iter() {
-            if tile == 0 {
-                indices.push(i)
-            }
-            i += 1;
-        }
-        indices
+    pub fn empty_tiles_indices(self) -> impl Iterator<Item = u8> {
+        self.into_empty_tiles_iter()
+    }
+
+    /// Returns the number of empty tiles
+    pub fn count_empty_tiles(self) -> usize {
+        self.empty_tiles_indices().fold(0, |mut acc, _| {
+            acc += 1;
+            acc
+        })
     }
 
     /// Returns the number of distinct tiles, excluding empty tiles
@@ -145,50 +143,71 @@ impl Board {
         }
     }
 
+    fn transpose(self) -> Self {
+        // Credit to nneonneo for this fast tranpose implementation
+        // https://github.com/nneonneo/2048-ai/blob/master/2048.cpp
+        let x = self.state;
+        let a1 = x & 0xF0F0_0F0F_F0F0_0F0F;
+        let a2 = x & 0x0000_F0F0_0000_F0F0;
+        let a3 = x & 0x0F0F_0000_0F0F_0000;
+        let a = a1 | (a2 << 12) | (a3 >> 12);
+        let b1 = a & 0xFF00_FF00_00FF_00FF;
+        let b2 = a & 0x00FF_00FF_0000_0000;
+        let b3 = a & 0x0000_0000_FF00_FF00;
+        let ret = b1 | (b2 >> 24) | (b3 << 24);
+        Self { state: ret }
+    }
+
     fn into_left(self) -> Self {
-        let mut state: u64 = 0;
-        for row_idx in 0..4 {
-            let row = self.get_row(row_idx);
-            state |= (LEFT_MOVES_TABLE[row as usize] as u64) << (16 * (3 - row_idx) as u64);
-        }
-        Self { state }
+        self.rows()
+            .iter()
+            .enumerate()
+            .fold(Board::default(), |mut acc, (row_idx, row)| {
+                acc.state |=
+                    (LEFT_MOVES_TABLE[*row as usize] as u64) << (16 * (3 - row_idx) as u64);
+                acc
+            })
     }
 
     fn into_right(self) -> Self {
-        let mut state: u64 = 0;
-        for row_idx in 0..4 {
-            let row = self.get_row(row_idx);
-            state |= (RIGHT_MOVES_TABLE[row as usize] as u64) << (16 * (3 - row_idx) as u64);
-        }
-        Self { state }
+        self.rows()
+            .iter()
+            .enumerate()
+            .fold(Board::default(), |mut acc, (row_idx, row)| {
+                acc.state |=
+                    (RIGHT_MOVES_TABLE[*row as usize] as u64) << (16 * (3 - row_idx) as u64);
+                acc
+            })
     }
 
     fn into_up(self) -> Self {
-        let mut state = 0;
-        for col_idx in 0..4 {
-            let col = self.get_column(col_idx);
-            let up_col = LEFT_MOVES_TABLE[col as usize] as u64;
-            let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0b1111_0000_0000_0000) << 36 + col_shift;
-            state |= (up_col & 0b1111_0000_0000) << 24 + col_shift;
-            state |= (up_col & 0b1111_0000) << 12 + col_shift;
-            state |= (up_col & 0b1111) << col_shift;
-        }
-        Self { state }
+        self.transpose().rows().iter().enumerate().fold(
+            Board::default(),
+            |mut acc, (col_idx, col)| {
+                let up_col = LEFT_MOVES_TABLE[*col as usize] as u64;
+                let col_shift = 4 * (3 - col_idx) as u64;
+                acc.state |= (up_col & 0xF000) << (36 + col_shift);
+                acc.state |= (up_col & 0xF00) << (24 + col_shift);
+                acc.state |= (up_col & 0xF0) << (12 + col_shift);
+                acc.state |= (up_col & 0xF) << col_shift;
+                acc
+            },
+        )
     }
 
     fn into_down(self) -> Self {
-        let mut state = 0;
-        for col_idx in 0..4 {
-            let col = self.get_column(col_idx);
-            let up_col = RIGHT_MOVES_TABLE[col as usize] as u64;
-            let col_shift = 4 * (3 - col_idx) as u64;
-            state |= (up_col & 0b1111_0000_0000_0000) << 36 + col_shift;
-            state |= (up_col & 0b1111_0000_0000) << 24 + col_shift;
-            state |= (up_col & 0b1111_0000) << 12 + col_shift;
-            state |= (up_col & 0b1111) << col_shift;
-        }
-        Self { state }
+        self.transpose().rows().iter().enumerate().fold(
+            Board::default(),
+            |mut acc, (col_idx, col)| {
+                let up_col = RIGHT_MOVES_TABLE[*col as usize] as u64;
+                let col_shift = 4 * (3 - col_idx) as u64;
+                acc.state |= (up_col & 0xF000) << (36 + col_shift);
+                acc.state |= (up_col & 0xF00) << (24 + col_shift);
+                acc.state |= (up_col & 0xF0) << (12 + col_shift);
+                acc.state |= (up_col & 0xF) << col_shift;
+                acc
+            },
+        )
     }
 }
 
@@ -226,30 +245,38 @@ impl Iterator for BoardIntoIterator {
 }
 
 impl Board {
-    pub fn into_reversed_iter(self) -> BoardIntoReversedIterator {
-        BoardIntoReversedIterator {
+    pub fn into_empty_tiles_iter(self) -> EmptyTilesIterator {
+        EmptyTilesIterator {
             state: self.state,
             index: 0,
         }
     }
 }
 
-pub struct BoardIntoReversedIterator {
+pub struct EmptyTilesIterator {
     state: u64,
     index: u8,
 }
 
-impl Iterator for BoardIntoReversedIterator {
+impl Iterator for EmptyTilesIterator {
     type Item = u8;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.index {
-            16 => None,
-            _ => {
-                let exponent = self.state & 0b1111;
-                self.state >>= 4;
-                self.index += 1;
-                Some(exponent as u8)
+        loop {
+            match self.index {
+                16 => return None,
+                _ => {
+                    let empty_tile_index = if self.state.leading_zeros() >= 4 {
+                        Some(self.index)
+                    } else {
+                        None
+                    };
+                    self.state <<= 4;
+                    self.index += 1;
+                    if empty_tile_index.is_some() {
+                        return empty_tile_index;
+                    }
+                }
             }
         }
     }
@@ -282,32 +309,30 @@ impl From<Board> for Vec<u16> {
 }
 
 impl Board {
-    fn display(&self, f: &mut Formatter<'_>, debug: bool) -> Result<(), std::fmt::Error> {
+    fn display(self, f: &mut Formatter<'_>, debug: bool) -> Result<(), std::fmt::Error> {
         let mut display = String::new();
         let line_break = if debug { "\n" } else { "\n\r" };
         display.push_str(&*format!(
             "{b}╔═══════╦═══════╦═══════╦═══════╗{b}",
             b = line_break
         ));
-        for (i, tile) in Vec::from(*self).into_iter().enumerate() {
+        for (i, tile) in Vec::from(self).into_iter().enumerate() {
             if tile == 0 {
                 display.push_str("║       ");
+            } else if debug {
+                display.push_str(&*format!(
+                    "║{prefix}{tile} ",
+                    prefix = get_spaces_prefix(tile),
+                    tile = tile,
+                ));
             } else {
-                if debug {
-                    display.push_str(&*format!(
-                        "║{prefix}{tile} ",
-                        prefix = get_spaces_prefix(tile),
-                        tile = tile,
-                    ));
-                } else {
-                    display.push_str(&*format!(
-                        "║{prefix}{color}{tile}{reset} ",
-                        prefix = get_spaces_prefix(tile),
-                        color = get_color(tile),
-                        tile = tile,
-                        reset = color::Fg(color::Reset)
-                    ));
-                }
+                display.push_str(&*format!(
+                    "║{prefix}{color}{tile}{reset} ",
+                    prefix = get_spaces_prefix(tile),
+                    color = get_color(tile),
+                    tile = tile,
+                    reset = color::Fg(color::Reset)
+                ));
             }
             if i % 4 == 3 {
                 display.push_str(&*format!("║{b}", b = line_break));
@@ -425,33 +450,6 @@ mod tests {
     }
 
     #[test]
-    fn should_reverse_iterate_over_exponents() {
-        // Given
-        #[rustfmt::skip]
-        let vec_board: Vec<u16> = vec![
-            0, 2, 0, 0,
-            32768, 0, 0, 2,
-            0, 0, 16, 4,
-            8, 2, 16, 64
-        ];
-        let board = Board::from(vec_board.clone());
-
-        // When
-        let exponents: Vec<_> = board.into_reversed_iter().collect();
-
-        // Then
-        #[rustfmt::skip]
-         let mut expected_exponents = vec![
-            0, 1, 0, 0,
-            15, 0, 0, 1,
-            0, 0, 4, 2,
-            3, 1, 4, 6
-        ];
-        expected_exponents.reverse();
-        assert_eq!(expected_exponents, exponents);
-    }
-
-    #[test]
     fn should_use_binary_representation() {
         // Given
         #[rustfmt::skip]
@@ -502,7 +500,7 @@ mod tests {
     }
 
     #[test]
-    fn should_get_row() {
+    fn should_get_rows() {
         // Given
         #[rustfmt::skip]
         let board = Board::from(vec![
@@ -512,23 +510,31 @@ mod tests {
             16, 8, 32, 32,
         ]);
 
-        // When / Then
-        assert_eq!(0b0010_0001_0000_1001, board.get_row(2));
+        // When
+        let rows = board.rows();
+
+        // Then
+        let expected_rows: [u16; 4] = [0x0201, 0x1020, 0x2109, 0x4355];
+        assert_eq!(expected_rows, rows);
     }
 
     #[test]
-    fn should_get_column() {
+    fn should_get_columns() {
         // Given
         #[rustfmt::skip]
-            let board = Board::from(vec![
-            0, 4, 0, 2,
-            2, 0, 512, 0,
-            4, 2, 2, 512,
-            16, 8, 32, 32,
+        let board = Board::from(vec![
+            0, 2, 4, 16,
+            4, 0, 2, 8,
+            0, 4, 0, 32,
+            2, 0, 512, 32,
         ]);
 
-        // When / Then
-        assert_eq!(0b0000_1001_0001_0101, board.get_column(2));
+        // When
+        let columns = board.columns();
+
+        // Then
+        let expected_rows: [u16; 4] = [0x0201, 0x1020, 0x2109, 0x4355];
+        assert_eq!(expected_rows, columns);
     }
 
     #[test]
@@ -740,8 +746,25 @@ mod tests {
         let board = Board::from(vec_board);
 
         // When
-        let empty_tiles = board.empty_tiles_indices();
+        let empty_tiles: Vec<_> = board.empty_tiles_indices().collect();
         assert_eq!(vec![0, 2, 4, 6, 8, 9], empty_tiles);
+    }
+
+    #[test]
+    fn should_count_empty_tiles() {
+        // Given
+        #[rustfmt::skip]
+            let vec_board = vec![
+            0, 2, 0, 2048,
+            0, 256, 0, 512,
+            0, 0, 1024, 4,
+            8, 2, 16, 64
+        ];
+        let board = Board::from(vec_board);
+
+        // When
+        let nb_empty_tiles = board.count_empty_tiles();
+        assert_eq!(6, nb_empty_tiles);
     }
 
     #[test]

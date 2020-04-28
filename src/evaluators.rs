@@ -1,5 +1,5 @@
 use crate::board::Board;
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 
 /// Evaluate a `Board` by mapping it to a number. The higher the number, the better the board
 /// state.
@@ -19,9 +19,11 @@ where
     T: RowColumnEvaluator,
 {
     fn evaluate(&self, board: Board) -> f32 {
-        (0..4)
-            .into_iter()
-            .map(|i| self.evaluate_row(board.get_row(i)) + self.evaluate_row(board.get_column(i)))
+        board
+            .rows()
+            .iter()
+            .chain(board.columns().iter())
+            .map(|row| self.evaluate_row(*row))
             .sum()
     }
 
@@ -44,7 +46,6 @@ impl PrecomputedBoardEvaluator {
         T: RowColumnEvaluator,
     {
         let row_cache = (0..(std::u16::MAX as usize + 1))
-            .into_iter()
             .map(|row| evaluator.evaluate_row(row as u16))
             .collect();
         Self {
@@ -58,15 +59,16 @@ impl PrecomputedBoardEvaluator {
 /// their evaluations
 #[derive(Default)]
 pub struct CombinedBoardEvaluator {
-    evaluators: Vec<Box<dyn RowColumnEvaluator>>,
+    /// evaluators along with their weight
+    evaluators: Vec<(Box<dyn RowColumnEvaluator>, f32)>,
 }
 
 impl CombinedBoardEvaluator {
-    pub fn add<T>(mut self, evaluator: T) -> Self
+    pub fn combine<T>(mut self, evaluator: T, weight: f32) -> Self
     where
         T: RowColumnEvaluator + 'static,
     {
-        self.evaluators.push(Box::new(evaluator));
+        self.evaluators.push((Box::new(evaluator), weight));
         self
     }
 }
@@ -75,26 +77,25 @@ impl RowColumnEvaluator for CombinedBoardEvaluator {
     fn evaluate_row(&self, row: u16) -> f32 {
         self.evaluators
             .iter()
-            .map(|evaluator| evaluator.evaluate_row(row))
+            .map(|(evaluator, weight)| weight * evaluator.evaluate_row(row))
             .sum()
     }
 
     fn gameover_penalty(&self) -> f32 {
         self.evaluators
             .iter()
-            .map(|evaluator| evaluator.gameover_penalty())
+            .map(|(evaluator, _)| evaluator.gameover_penalty())
             .sum()
     }
 }
 
 impl BoardEvaluator for PrecomputedBoardEvaluator {
     fn evaluate(&self, board: Board) -> f32 {
-        (0..4)
-            .into_iter()
-            .map(|i| {
-                self.row_cache[board.get_row(i) as usize]
-                    + self.row_cache[board.get_column(i) as usize]
-            })
+        board
+            .rows()
+            .iter()
+            .chain(board.columns().iter())
+            .map(|row| self.row_cache[*row as usize])
             .sum()
     }
 
@@ -114,7 +115,7 @@ impl Default for EmptyTileEvaluator {
     fn default() -> Self {
         Self {
             gameover_penalty: 0.0,
-            power: 2,
+            power: 1,
         }
     }
 }
@@ -124,7 +125,7 @@ impl RowColumnEvaluator for EmptyTileEvaluator {
         let mut nb_empty: u32 = 0;
         let mut row = row;
         for _ in 0..4 {
-            if (row & 0b1111) == 0 {
+            if row.trailing_zeros() >= 4 {
                 nb_empty += 1;
             }
             row >>= 4;
@@ -194,17 +195,21 @@ impl Default for MonotonicityEvaluator {
 
 impl RowColumnEvaluator for MonotonicityEvaluator {
     fn evaluate_row(&self, row: u16) -> f32 {
-        let mut left_value = row >> 12;
+        let mut left_value: u32 = (row >> 12) as u32;
         let mut left_right_inversions = 0;
         let mut right_left_inversions = 0;
         for col in 1..4 {
-            let v = (row >> 4 * (3 - col)) & 0b1111;
-            if v < left_value {
-                left_right_inversions +=
-                    left_value.pow(self.monotonicity_power) - v.pow(self.monotonicity_power);
-            } else if v > left_value {
-                right_left_inversions +=
-                    v.pow(self.monotonicity_power) - left_value.pow(self.monotonicity_power);
+            let v: u32 = ((row >> (4 * (3 - col))) & 0b1111) as u32;
+            match v.cmp(&left_value) {
+                Ordering::Less => {
+                    left_right_inversions +=
+                        left_value.pow(self.monotonicity_power) - v.pow(self.monotonicity_power);
+                }
+                Ordering::Greater => {
+                    right_left_inversions +=
+                        v.pow(self.monotonicity_power) - left_value.pow(self.monotonicity_power);
+                }
+                Ordering::Equal => {}
             }
             left_value = v;
         }
@@ -237,7 +242,7 @@ mod tests {
         };
 
         // When
-        assert_eq!(4., evaluator.evaluate_row(board.get_row(1)));
+        assert_eq!(4., evaluator.evaluate_row(board.rows()[1]));
     }
 
     #[test]
@@ -257,9 +262,10 @@ mod tests {
         };
 
         // When / Then
-        assert_eq!(0., evaluator.evaluate_row(board.get_row(0)));
-        assert_eq!(4., evaluator.evaluate_row(board.get_row(1)));
-        assert_eq!(0., evaluator.evaluate_row(board.get_row(2)));
+        let rows = board.rows();
+        assert_eq!(0., evaluator.evaluate_row(rows[0]));
+        assert_eq!(4., evaluator.evaluate_row(rows[1]));
+        assert_eq!(0., evaluator.evaluate_row(rows[2]));
     }
 
     #[test]
@@ -279,9 +285,10 @@ mod tests {
         };
 
         // When
-        let row_inversions_1 = evaluator.evaluate_row(board.get_row(1));
-        let row_inversions_2 = evaluator.evaluate_row(board.get_row(2));
-        let col_inversions = evaluator.evaluate_row(board.get_column(1));
+        let rows = board.rows();
+        let row_inversions_1 = evaluator.evaluate_row(rows[1]);
+        let row_inversions_2 = evaluator.evaluate_row(rows[2]);
+        let col_inversions = evaluator.evaluate_row(board.columns()[1]);
 
         // Then
         assert_eq!(-64., row_inversions_1);
@@ -321,21 +328,28 @@ mod tests {
         ];
         let board = Board::from(vec_board);
         let evaluator = CombinedBoardEvaluator::default()
-            .add(EmptyTileEvaluator {
-                gameover_penalty: 0.,
-                power: 2,
-            })
-            .add(MonotonicityEvaluator {
-                gameover_penalty: 0.,
-                monotonicity_power: 2,
-            });
+            .combine(
+                EmptyTileEvaluator {
+                    gameover_penalty: 0.,
+                    power: 2,
+                },
+                2.0,
+            )
+            .combine(
+                MonotonicityEvaluator {
+                    gameover_penalty: 0.,
+                    monotonicity_power: 2,
+                },
+                1.0,
+            );
 
         // When
-        let evaluation_1 = evaluator.evaluate_row(board.get_row(1));
-        let evaluation_2 = evaluator.evaluate_row(board.get_row(2));
+        let rows = board.rows();
+        let evaluation_1 = evaluator.evaluate_row(rows[1]);
+        let evaluation_2 = evaluator.evaluate_row(rows[2]);
 
         // Then
-        assert_eq!(-9. + 4., evaluation_1);
-        assert_eq!(-15. + 1., evaluation_2);
+        assert_eq!(-9. + 2. * 4., evaluation_1);
+        assert_eq!(-15. + 2. * 1., evaluation_2);
     }
 }
