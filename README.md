@@ -31,11 +31,13 @@ Some other hardcoded parameters can be tweaked to further improve the algorithm.
 I have not performed an exhaustive grid search, thus the parameter set is probably sub-optimal.
 
 ## Installation with Cargo
+
 ```bash
 cargo install play-2048
 ```
 
 Then, in order to play:
+
 ```bash
 play-2048
 ```
