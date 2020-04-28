@@ -1,6 +1,6 @@
 [package]
 name = "play-2048"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Adrien Ball <adrienball3@gmail.com>"]
 license = "MIT OR Apache-2.0"
 description = "Rust implementation of the famous 2048 game in the terminal"
