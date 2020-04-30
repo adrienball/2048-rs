@@ -16,13 +16,15 @@ recommend the best next move at each step.
 
 Here are the statistics of the AI with its default parameters:
 
-| max tile reached | frequency |
-|-----------------:|----------:|
-|             2048 |     100 % |
-|             4096 |     100 % |
-|             8192 |      96 % |
-|            16384 |      70 % |
-|            32768 |      10 % |
+| max tile reached | frequency | average time to <br> reach max tile |
+|-----------------:|----------:|------------------------------------:|
+|             2048 |     100 % |                                 12s |
+|             4096 |     100 % |                                 23s |
+|             8192 |      96 % |                                 74s |
+|            16384 |      70 % |                                202s |
+|            32768 |      10 % |                                673s |
+
+Average times have been computed on a macbook pro 3,5 GHz Dual-Core Intel Core i7
 
 In particular, these statistics correspond to a minimum branch probability of `0.001`. 
 Decreasing this value would lead to better performance, as more branches would be explored, but this would also take more time.
