@@ -1,0 +1,49 @@
+name: Native
+
+on:
+  pull_request:
+  push:
+    branches:
+      - 'main'
+  schedule:
+    - cron:  '0 9 * * 6'
+
+jobs:
+  rust-fmt:
+    name: Check rust formatting
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.65.0
+          default: true
+          components: rustfmt
+      - name: Cargo fmt check
+        run: cargo fmt --all -- --check
+
+  rust-tests:
+    name: rust-tests
+
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [1.65.0, stable]
+        os: [ubuntu-latest]
+        cargo-args:
+          - --all --benches --examples --bins --tests
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          default: true
+      - name: Cargo test
+        run: cargo test ${{ matrix.cargo-args }}

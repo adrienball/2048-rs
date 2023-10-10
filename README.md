@@ -1,5 +1,6 @@
 # 2048-rs
-[![Travis Build Status](https://travis-ci.org/adrienball/2048-rs.svg?branch=master)](https://travis-ci.org/adrienball/2048-rs)
+[![Github tag](https://badgen.net/github/tag/adrienball/2048-rs)](https://github.com/adrienball/2048-rs/tags/)
+[![Native Linux test status](https://github.com/adrienball/2048-rs/workflows/Native/badge.svg)](https://github.com/adrienball/2048-rs/actions)
 
 This is a Rust implementation of the famous [2048 game](https://en.wikipedia.org/wiki/2048_\(video_game\)) 
 which runs in the terminal.
